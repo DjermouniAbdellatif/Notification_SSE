@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
@@ -373,7 +374,46 @@ public class CourrielService {
 
 
 
+    @Transactional
+    public void cleanOrphanFilesFromDB() {
+        List<Courriel> allCourriels = courrielRepository.findAll();
 
+        for (Courriel courriel : allCourriels) {
+            Iterator<File> iterator = courriel.getCourrielFiles().iterator();
+
+            while (iterator.hasNext()) {
+                File file = iterator.next();
+                Path filePath = Paths.get(file.getFilePath());
+
+                if (!Files.exists(filePath)) {
+                    System.out.println("Deleting orphan file record: " + file.getFileName());
+                    iterator.remove();
+                }
+            }
+
+            courrielRepository.save(courriel);
+        }
+    }
+
+    @Transactional
+    public void cleanOrphanCourrielsFromDB() {
+        List<Courriel> allCourriels = courrielRepository.findAll();
+
+        for (Courriel courriel : allCourriels) {
+            Path courrielDir = Paths.get(courriel.getCourrielPath());
+
+            if (!Files.exists(courrielDir)) {
+                System.out.println("Deleting orphan courriel: " + courriel.getCourrielNumber());
+                courrielRepository.delete(courriel);
+            }
+        }
+    }
+
+
+    public void cleanDatabaseFromMissingDiskData() {
+        cleanOrphanFilesFromDB();
+        cleanOrphanCourrielsFromDB();
+    }
 
 
     private long convertSizeToBytes(String size) {
