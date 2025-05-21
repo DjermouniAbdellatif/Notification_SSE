@@ -126,6 +126,7 @@ public class CourrielService {
                     .fileName(compressedFileName)
                     .filePath(compressedFilePath.toString())
                     .fileType("application/pdf")
+                    .fileSize(Files.size(compressedFilePath))
                     .build();
 
             courrielFiles.add(fileEntity);
@@ -155,7 +156,7 @@ public class CourrielService {
         // return the  response
         CreateCourrielResponse response = CreateCourrielResponse.builder()
                 .courrielNumber(request.courrielNumber())
-                .responseDto(validFiles)
+                .uploadedFiles(validFiles)
                 .skippedFiles(skippedFiles)
                 .build();
 
@@ -236,14 +237,14 @@ public class CourrielService {
         courrielRepository.delete(courriel);
 
 
-        DeleteCourrielResponse responseDto = DeleteCourrielResponse.builder()
+        DeleteCourrielResponse uploadedFiles = DeleteCourrielResponse.builder()
                 .courrielNumber(courriel.getCourrielNumber())
                 .courrielPath(courriel.getCourrielPath())
                 .build();
 
         return ApiResponse.<DeleteCourrielResponse>builder()
                 .message("Courriel deleted successfully.")
-                .data(responseDto)
+                .data(uploadedFiles)
                 .build();
     }
 
@@ -325,12 +326,18 @@ public class CourrielService {
 
         CreateCourrielResponse response = CreateCourrielResponse.builder()
                 .courrielNumber(courrielNumber)
-                .responseDto(uploadedFiles)
+                .uploadedFiles(uploadedFiles)
                 .skippedFiles(skippedFiles)
                 .build();
 
+        String message="Courriel : "+courrielNumber+" Updated.";
+
+        if(uploadedFiles.isEmpty()) {
+            message="Courriel Not Updated !";
+        }
+
         return ApiResponse.<CreateCourrielResponse>builder()
-                .message("Courriel : "+courrielNumber+" Updated.")
+                .message(message)
                 .data(response)
                 .build();
     }

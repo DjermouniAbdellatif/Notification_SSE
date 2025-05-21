@@ -8,6 +8,6 @@ import java.util.List;
 @Builder
 public record CreateCourrielResponse(
         String courrielNumber,
-        List<UploadFileResponse> responseDto,
+        List<UploadFileResponse> uploadedFiles,
         List<SkippedFileError> skippedFiles
 ) {}
