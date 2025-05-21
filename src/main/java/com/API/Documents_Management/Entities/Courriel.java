@@ -25,7 +25,7 @@ public class Courriel {
     private String courrielPath;
     private String courrielNumber;
 
-    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "courriel_id")
     private Set<File> courrielFiles = new HashSet<>();
 

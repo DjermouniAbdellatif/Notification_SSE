@@ -376,7 +376,9 @@ public class CourrielService {
 
     @Transactional
     public void cleanOrphanFilesFromDB() {
-        List<Courriel> allCourriels = courrielRepository.findAll();
+
+        List<Courriel> allCourriels = courrielRepository.findAllWithFiles();
+
 
         for (Courriel courriel : allCourriels) {
             Iterator<File> iterator = courriel.getCourrielFiles().iterator();

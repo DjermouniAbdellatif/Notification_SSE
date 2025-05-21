@@ -16,6 +16,9 @@ public interface CourrielRepo extends JpaRepository<Courriel, Long> {
     @Query("SELECT c FROM Courriel c LEFT JOIN FETCH c.courrielFiles WHERE c.courrielNumber = :number")
     Optional<Courriel> findByCourrielNumberWithFiles(@Param("number") String number);
 
+    @Query("SELECT DISTINCT c FROM Courriel c LEFT JOIN FETCH c.courrielFiles")
+    List<Courriel> findAllWithFiles();
+
 
     Boolean existsByCourrielNumber(String courrielNumber);
 
