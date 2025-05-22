@@ -160,7 +160,8 @@ public class CourrielService {
                 .skippedFiles(skippedFiles)
                 .build();
 
-        return new ApiResponse<>("Courriel created successfully", response);
+        return new ApiResponse<>(
+                true,"Courriel created successfully", response);
     }
 
 
@@ -376,7 +377,7 @@ public class CourrielService {
                 .fileName(fileToRemove.getFileName())
                 .build();
 
-        return new ApiResponse<>("File removed successfully", response);
+        return new ApiResponse<>(true,"File removed successfully", response);
     }
 
 

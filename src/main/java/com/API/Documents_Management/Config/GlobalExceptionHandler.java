@@ -8,70 +8,100 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
+
+import java.util.stream.Collectors;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // 🔹 Illegal arguments
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(ex.getMessage(), null));
+                .body(ApiResponse.builder()
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
-
-    @ExceptionHandler(AlreadyExistsException.class)
-    public ResponseEntity<ApiResponse<String>> handleAlreadyExists(AlreadyExistsException ex) {
-
-
-        ApiResponse<String> body = ApiResponse.<String>builder()
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    // 🔹 Duplicate / Conflict errors
+    @ExceptionHandler({
+            AlreadyExistsException.class,
+            UserAlreadyExistsException.class
+    })
+    public ResponseEntity<ApiResponse<String>> handleAlreadyExists(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.<String>builder()
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
+    // 🔹 Not Found errors
+    @ExceptionHandler({
+            ResourceNotFoundException.class,
+            FileNotFoundException.class,
+            UserNotFoundException.class,
+            RoleNotFoundException.class,
+            AuthorityNotFoundException.class
+    })
+    public ResponseEntity<ApiResponse<String>> handleNotFound(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.<String>builder()
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
+    }
 
-
-
-    @ExceptionHandler({ FileTypeNotAllowedException.class,
+    // 🔹 File validation errors
+    @ExceptionHandler({
+            FileTypeNotAllowedException.class,
             FileTooLargeException.class,
-            EmptyFileException.class })
-    public ResponseEntity<ApiResponse<String>> handleFileErrors(RuntimeException ex) {
-        ApiResponse<String> body = ApiResponse.<String>builder()
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return ResponseEntity.badRequest().body(body);
+            EmptyFileException.class
+    })
+    public ResponseEntity<ApiResponse<String>> handleFileValidationErrors(RuntimeException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.<String>builder()
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
-    @ExceptionHandler({ FileNotFoundException.class})
-    public ResponseEntity<ApiResponse<String>> handleFileNotFoundException(RuntimeException ex) {
-        ApiResponse<String> body = ApiResponse.<String>builder()
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return ResponseEntity.badRequest().body(body);
+    // 🔹 Invalid name (role/authority)
+    @ExceptionHandler({
+            InvalidRoleNameException.class,
+            InvalidAuthorityNameException.class
+    })
+    public ResponseEntity<ApiResponse<String>> handleInvalidName(RuntimeException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.<String>builder()
+                        .message(ex.getMessage())
+                        .data(null)
+                        .build());
     }
 
-
-
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<String>> handleNotFound(ResourceNotFoundException ex) {
-        ApiResponse<String> body = ApiResponse.<String>builder()
-                .message(ex.getMessage())
-                .data(null)
-                .build();
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    // 🔹 Validation errors (from DTOs with @Valid)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<String>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        String errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining("; "));
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.<String>builder()
+                        .message(errors)
+                        .data(null)
+                        .build());
     }
 
-
-
+    // 🔹 Default fallback
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleGeneral(Exception ex) {
-        ApiResponse<String> body = ApiResponse.<String>builder()
-                .message("Internal error!")
-                .data(null)
-                .build();
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.<String>builder()
+                        .message("Internal server error: " + ex.getMessage())
+                        .data(null)
+                        .build());
     }
 }

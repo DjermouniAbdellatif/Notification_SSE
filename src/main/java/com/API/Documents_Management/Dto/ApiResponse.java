@@ -4,5 +4,5 @@ import lombok.Builder;
 import lombok.Data;
 
 @Builder
-public record ApiResponse<T>(String message, T data) {
+public record ApiResponse<T>(boolean isSucces,String message, T data) {
 }
