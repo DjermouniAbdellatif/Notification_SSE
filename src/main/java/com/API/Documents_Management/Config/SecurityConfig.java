@@ -67,7 +67,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/users/all").hasAuthority("ADMIN_READ")
+                        .requestMatchers("/api/admin/**","/api/users/all").hasAnyAuthority("ADMIN_READ")
                         .requestMatchers("/api/courriels/**").hasAuthority("ADMIN_UPDATE")
                         .anyRequest().permitAll()
                 )

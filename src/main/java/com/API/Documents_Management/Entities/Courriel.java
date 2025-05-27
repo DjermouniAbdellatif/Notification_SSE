@@ -1,5 +1,6 @@
 package com.API.Documents_Management.Entities;
 
+import com.API.Documents_Management.Components.AuditEntityListener;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,7 +17,8 @@ import java.util.Set;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Courriel {
+@EntityListeners(AuditEntityListener.class)
+public class Courriel implements AuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -29,4 +31,14 @@ public class Courriel {
     @JoinColumn(name = "courriel_id")
     private Set<File> courrielFiles = new HashSet<>();
 
+
+    @Override
+    public Long getId() {
+        return this.id;
+    }
+
+    @Override
+    public String getAuditIdentifier() {
+        return this.courrielNumber;
+    }
 }

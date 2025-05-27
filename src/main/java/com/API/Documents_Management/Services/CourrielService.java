@@ -244,6 +244,7 @@ public class CourrielService {
                 .build();
 
         return ApiResponse.<DeleteCourrielResponse>builder()
+                .isSucces(true)
                 .message("Courriel deleted successfully.")
                 .data(uploadedFiles)
                 .build();
@@ -332,12 +333,15 @@ public class CourrielService {
                 .build();
 
         String message="Courriel : "+courrielNumber+" Updated.";
+        Boolean isSucces = true;
 
         if(uploadedFiles.isEmpty()) {
             message="Courriel Not Updated !";
+            isSucces = false;
         }
 
         return ApiResponse.<CreateCourrielResponse>builder()
+                .isSucces(isSucces)
                 .message(message)
                 .data(response)
                 .build();
@@ -356,6 +360,8 @@ public class CourrielService {
 
         Path filePath = Paths.get(fileToRemove.getFilePath());
 
+        boolean isSuccess = true;
+
         // Check if file physiquelly exist
         if (Files.exists(filePath)) {
             try {
@@ -365,6 +371,7 @@ public class CourrielService {
             }
         } else {
             System.out.println("Warning: file not found on disk, deleting only from DB: " + filePath);
+            isSuccess = false;
         }
 
         // delete all attached files
@@ -377,7 +384,7 @@ public class CourrielService {
                 .fileName(fileToRemove.getFileName())
                 .build();
 
-        return new ApiResponse<>(true,"File removed successfully", response);
+        return new ApiResponse<>(isSuccess,"File removed successfully", response);
     }
 
 

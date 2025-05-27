@@ -15,7 +15,7 @@ public class DatabaseCleanupScheduler {
 
     // Methode will be executed every thursday at 15h30
 
-    @Scheduled(cron = "0 30 15 ? * THU", zone = "Africa/Algiers")
+    @Scheduled(cron = "0 20 15 ? * MON", zone = "Africa/Algiers")
     public void scheduledDatabaseCleanup() {
         System.out.println("[SCHEDULER] " + LocalDateTime.now() + " - Cleaning orphan files and courriels from database...");
         courrielService.cleanDatabaseFromMissingDiskData();
