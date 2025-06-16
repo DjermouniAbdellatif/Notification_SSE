@@ -9,14 +9,20 @@ public class GetUserDTO {
     private String username;
     private List<String> roles;
     private List<String> authorities;
+    private Long divisionId;
+    private Long directionId;
+    private Long sousDirectionId;
 
     public GetUserDTO() {
     }
 
-    public GetUserDTO(String username, List<String> roles, List<String> authorities) {
+    public GetUserDTO(String username, List<String> roles, List<String> authorities, Long divisionId, Long directionId, Long sousDirectionId) {
         this.username = username;
         this.roles = roles;
         this.authorities = authorities;
+        this.divisionId = divisionId;
+        this.directionId = directionId;
+        this.sousDirectionId = sousDirectionId;
     }
 
     // getters & setters
@@ -44,6 +50,29 @@ public class GetUserDTO {
         this.authorities = authorities;
     }
 
+    public Long getDivisionId() {
+        return divisionId;
+    }
+
+    public void setDivisionId(Long divisionId) {
+        this.divisionId = divisionId;
+    }
+
+    public Long getDirectionId() {
+        return directionId;
+    }
+
+    public void setDirectionId(Long directionId) {
+        this.directionId = directionId;
+    }
+
+    public Long getSousDirectionId() {
+        return sousDirectionId;
+    }
+
+    public void setSousDirectionId(Long sousDirectionId) {
+        this.sousDirectionId = sousDirectionId;
+    }
 
     // Map user to userDTO
 
@@ -58,7 +87,18 @@ public class GetUserDTO {
                 .distinct()
                 .toList();
 
-        return new GetUserDTO(user.getUsername(), roleNames, authorityNames);
+        Long divisionId = (user.getDivision() != null) ? user.getDivision().getId() : null;
+        Long directionId = (user.getDirection() != null) ? user.getDirection().getId() : null;
+        Long sousDirectionId = (user.getSousDirection() != null) ? user.getSousDirection().getId() : null;
+
+        return new GetUserDTO(
+                user.getUsername(),
+                roleNames,
+                authorityNames,
+                divisionId,
+                directionId,
+                sousDirectionId
+        );
     }
 
 }

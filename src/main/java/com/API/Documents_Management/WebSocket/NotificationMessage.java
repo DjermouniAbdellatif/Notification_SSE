@@ -10,9 +10,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class NotificationMessage {
+    private String email;
+    private String divisionName;
+    private String directionName;
+    private String sousDirectionName;
     private String message;
     private String resource;
     private String operation;
-    private String creator;
     private String time;
+
 }

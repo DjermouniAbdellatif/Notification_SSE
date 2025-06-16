@@ -1,15 +1,18 @@
 package com.API.Documents_Management.Entities;
 
+import com.API.Documents_Management.Direction.Direction;
+import com.API.Documents_Management.Division.Division;
+import com.API.Documents_Management.SousDirection.SousDirection;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class AppUser  {
 
     @Id
@@ -20,18 +23,8 @@ public class AppUser  {
             allocationSize = 1
     )
     private Long id;
-
-    public AppUser(Long id, String username, String password, Set<Role> roles) {
-        this.id = id;
-        this.username = username;
-        this.password = password;
-        this.roles = roles;
-    }
-
-    public AppUser() {}
-
     private String username;
-
+    private String email;
     private String password;
 
 
@@ -43,35 +36,13 @@ public class AppUser  {
     )
     private Set<Role> roles = new HashSet<>();
 
-    public Long getId() {
-        return id;
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Division division;
 
-    public String getUsername() {
-        return username;
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Direction direction;
 
-    public String getPassword() {
-        return password;
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    private SousDirection sousDirection;
 
-    public Set<Role> getRoles() {
-        return roles;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setRoles(Set<Role> roles) {
-        this.roles = roles;
-    }
 }

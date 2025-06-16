@@ -1,8 +1,10 @@
 package com.API.Documents_Management.Services;
 
 
+import com.API.Documents_Management.Division.DivisionRepo;
 import com.API.Documents_Management.Dto.*;
 import com.API.Documents_Management.Entities.File;
+import com.API.Documents_Management.Enums.CourrielType;
 import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Exceptions.*;
 import com.API.Documents_Management.Exceptions.FileNotFoundException;
@@ -39,6 +41,7 @@ public class CourrielService {
     private final String basePath;
     private final long maxFileSize;
     private final long totalMaxSize;
+    private final DivisionRepo divisionRepo;
 
     public CourrielService(
             NotificationWebSocketService notificationWebSocketService,
@@ -46,14 +49,15 @@ public class CourrielService {
             FileRepo fileRepository,
             @Value("${file.storagePath}") String basePath,
             @Value("${file.maxSize}") String maxFileSize,
-            @Value("${file.totalMaxSize}") String totalMaxSize
-    ) {
+            @Value("${file.totalMaxSize}") String totalMaxSize,
+            DivisionRepo divisionRepo) {
         this.notificationWebSocketService = notificationWebSocketService;
         this.courrielRepository = courrielRepository;
         this.fileRepository = fileRepository;
         this.basePath = basePath;
         this.maxFileSize = convertSizeToBytes(maxFileSize);
         this.totalMaxSize = convertSizeToBytes(totalMaxSize);
+        this.divisionRepo = divisionRepo;
     }
 
     public String getUser() {
@@ -158,7 +162,9 @@ public class CourrielService {
         if (!courrielFiles.isEmpty()) {
             Courriel courriel = Courriel.builder()
                     .courrielNumber(request.courrielNumber())
-                    .courrielType("PDF")
+                    .courrielType(CourrielType.ENTRANT_INTERN)
+                    .fromDivision(divisionRepo.findById(1L).get())
+                    .toDivision(divisionRepo.findById(1L).get())
                     .courrielPath(folderPath.toString())
                     .courrielFiles(courrielFiles)
                     .build();
