@@ -1,20 +1,26 @@
 package com.API.Documents_Management.Services;
 
 
+import com.API.Documents_Management.Division.DivisionRepo;
 import com.API.Documents_Management.Dto.*;
 import com.API.Documents_Management.Entities.File;
+import com.API.Documents_Management.Enums.CourrielType;
+import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Exceptions.*;
 import com.API.Documents_Management.Exceptions.FileNotFoundException;
 import com.API.Documents_Management.Repositories.*;
 import com.API.Documents_Management.Entities.*;
 
 import com.API.Documents_Management.Utils.FormatUtils;
+import com.API.Documents_Management.WebSocket.NotificationWebSocketService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,35 +29,48 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 
 @Service
 public class CourrielService {
 
+    private final NotificationWebSocketService notificationWebSocketService;
     private final CourrielRepo courrielRepository;
     private final FileRepo fileRepository;
     private final String basePath;
     private final long maxFileSize;
     private final long totalMaxSize;
-    private final CourrielRepo courrielRepo;
+    private final DivisionRepo divisionRepo;
 
     public CourrielService(
+            NotificationWebSocketService notificationWebSocketService,
             CourrielRepo courrielRepository,
             FileRepo fileRepository,
             @Value("${file.storagePath}") String basePath,
             @Value("${file.maxSize}") String maxFileSize,
             @Value("${file.totalMaxSize}") String totalMaxSize,
-            CourrielRepo courrielRepo) {
+            DivisionRepo divisionRepo) {
+        this.notificationWebSocketService = notificationWebSocketService;
         this.courrielRepository = courrielRepository;
         this.fileRepository = fileRepository;
         this.basePath = basePath;
-        this.maxFileSize =convertSizeToBytes(maxFileSize);
+        this.maxFileSize = convertSizeToBytes(maxFileSize);
         this.totalMaxSize = convertSizeToBytes(totalMaxSize);
-        this.courrielRepo = courrielRepo;
+        this.divisionRepo = divisionRepo;
+    }
+
+    public String getUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return (auth != null) ? auth.getName() : "anonymous";
     }
 
     public ApiResponse<CreateCourrielResponse> createCourriel(CreateCourrielRequest request) throws IOException {
+
+        // get authentified user
+        String user=getUser();
+
 
         // Check if a courriel with the same number already exists
 
@@ -144,11 +163,24 @@ public class CourrielService {
         if (!courrielFiles.isEmpty()) {
             Courriel courriel = Courriel.builder()
                     .courrielNumber(request.courrielNumber())
-                    .courrielType("PDF")
+                    .courrielType(CourrielType.ENTRANT_INTERN)
+                    .fromDivision(divisionRepo.findById(1L).get())
+                    .toDivision(divisionRepo.findById(1L).get())
                     .courrielPath(folderPath.toString())
                     .courrielFiles(courrielFiles)
                     .build();
             courrielRepository.save(courriel);
+
+            // Notification
+            List<String>filesNames = validFiles.stream()
+                            .map(name->name.fileName())
+                            .collect(Collectors.toList());
+
+
+
+            notificationWebSocketService.sendNotification("New Courriel  created ","Courriel with number : "+courriel.getCourrielNumber(),CleaningFilesNames(filesNames), Operations.CREATE, user);
+
+
         }else {
             Files.deleteIfExists(folderPath);
         }
@@ -167,6 +199,8 @@ public class CourrielService {
 
 
     public ResponseEntity<Resource> downloadFile(String courrielNumber, String fileName) {
+
+
 
         // Get courriel data from DB
         Courriel courriel = courrielRepository.findByCourrielNumberWithFiles(courrielNumber)
@@ -208,6 +242,9 @@ public class CourrielService {
 
     public ApiResponse<DeleteCourrielResponse> deleteCourrielByNumber(String courrielNumber) {
 
+        // get authentified user
+        String user=getUser();
+
         // Check if courriel exist
         Courriel courriel = courrielRepository
                 .findByCourrielNumberWithFiles(courrielNumber)
@@ -237,6 +274,21 @@ public class CourrielService {
         // Delete courriel from DB
         courrielRepository.delete(courriel);
 
+        // 📢 notification WebSocket
+
+        String notificationMessage = "Le courriel n° " + courrielNumber + " a été supprimé avec succès.";
+        notificationWebSocketService.sendNotification(
+                notificationMessage,
+                courrielNumber,
+                new HashSet<>(),
+                Operations.DELETE,
+                user
+        );
+
+        notificationWebSocketService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE_FILE, user);
+
+
+
 
         DeleteCourrielResponse uploadedFiles = DeleteCourrielResponse.builder()
                 .courrielNumber(courriel.getCourrielNumber())
@@ -255,6 +307,9 @@ public class CourrielService {
             String courrielNumber,
             List<MultipartFile> filesToSave
     ) throws IOException {
+
+        // get authentified user
+        String user=getUser();
 
         if (filesToSave == null || filesToSave.isEmpty()) {
             throw new EmptyFileException("No files provided.");
@@ -326,6 +381,14 @@ public class CourrielService {
 
         courrielRepository.save(courriel);
 
+        // 📢 Notification  WebSocket
+
+        List<String> filesNames=uploadedFiles.stream().map(n->n.fileName()).collect(Collectors.toList());
+
+        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPLOAD_FILE, user);
+
+
+
         CreateCourrielResponse response = CreateCourrielResponse.builder()
                 .courrielNumber(courrielNumber)
                 .uploadedFiles(uploadedFiles)
@@ -350,6 +413,11 @@ public class CourrielService {
 
 
     public ApiResponse<DeleteFileResponse> removeFileFromCourriel(String courrielNumber, String filename) {
+
+
+        // get authentified user
+        String user=getUser();
+
         Courriel courriel = courrielRepository.findByCourrielNumberWithFiles(courrielNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Courriel not found: " + courrielNumber));
 
@@ -377,6 +445,15 @@ public class CourrielService {
         // delete all attached files
         courriel.getCourrielFiles().remove(fileToRemove);
         courrielRepository.save(courriel);
+
+
+        // 📢 Notification  WebSocket
+
+        List<String> filesNames=List.of(filename);
+
+        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPDATE, user);
+
+
 
         DeleteFileResponse response = DeleteFileResponse.builder()
                 .courrielNumber(courriel.getCourrielNumber())
@@ -444,6 +521,13 @@ public class CourrielService {
 
     private String sanitize(String input) {
         return input.replaceAll("[^a-zA-Z0-9-_]", "_");
+    }
+
+    private Set<String> CleaningFilesNames(List<String> uploadedFiles) {
+
+        return  uploadedFiles.stream()
+                .map(name -> name.replaceFirst("\\.gz$", "")) // ✅ Delete ".gz"
+                .collect(Collectors.toSet());
     }
     }
 
