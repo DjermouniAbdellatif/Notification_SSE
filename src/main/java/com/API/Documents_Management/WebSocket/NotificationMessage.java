@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -15,7 +17,8 @@ public class NotificationMessage {
     private String directionName;
     private String sousDirectionName;
     private String message;
-    private String resource;
+    private String courrielNumber;
+    private Set<String> filesNames;
     private String operation;
     private String time;
 

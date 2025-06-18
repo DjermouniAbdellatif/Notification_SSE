@@ -40,5 +40,13 @@ public interface AppUserRepo extends JpaRepository<AppUser, Long> {
     List<AppUser> findAllByDirection_DivisionWithDivisionLoaded(@Param("division") Division division);
 
 
+    @Query("SELECT u FROM AppUser u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.authorities WHERE u.username = :username")
+    Optional<AppUser> findUserWithRolesAndAuthoritiesByUsername(@Param("username") String username);
 
+
+    @Query("SELECT DISTINCT u FROM AppUser u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.authorities WHERE u.direction = :direction")
+    List<AppUser> findAllWithRolesByDirection(@Param("direction") Direction direction);
+
+    @Query("SELECT DISTINCT u FROM AppUser u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.authorities WHERE u.division = :division")
+    List<AppUser> findAllWithRolesByDivision(@Param("division") Division division);
 }

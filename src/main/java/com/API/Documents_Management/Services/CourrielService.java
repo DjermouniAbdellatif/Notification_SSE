@@ -29,6 +29,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 
@@ -171,7 +172,13 @@ public class CourrielService {
             courrielRepository.save(courriel);
 
             // Notification
-            notificationWebSocketService.sendNotification("New Courriel  created ","Courriel with number : "+courriel.getCourrielNumber(), Operations.CREATE, user);
+            List<String>filesNames = validFiles.stream()
+                            .map(name->name.fileName())
+                            .collect(Collectors.toList());
+
+
+
+            notificationWebSocketService.sendNotification("New Courriel  created ","Courriel with number : "+courriel.getCourrielNumber(),CleaningFilesNames(filesNames), Operations.CREATE, user);
 
 
         }else {
@@ -267,8 +274,19 @@ public class CourrielService {
         // Delete courriel from DB
         courrielRepository.delete(courriel);
 
-        // Notification
-        notificationWebSocketService.sendNotification(" Courriel  Deleted ","Courriel with number : "+courriel.getCourrielNumber(), Operations.DELETE, user);
+        // 📢 notification WebSocket
+
+        String notificationMessage = "Le courriel n° " + courrielNumber + " a été supprimé avec succès.";
+        notificationWebSocketService.sendNotification(
+                notificationMessage,
+                courrielNumber,
+                new HashSet<>(),
+                Operations.DELETE,
+                user
+        );
+
+        notificationWebSocketService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE_FILE, user);
+
 
 
 
@@ -363,8 +381,12 @@ public class CourrielService {
 
         courrielRepository.save(courriel);
 
-        // Notification
-        notificationWebSocketService.sendNotification("New Files Uploaded ","Courriel with number : "+courriel.getCourrielNumber(), Operations.UPLOAD_FILE, user);
+        // 📢 Notification  WebSocket
+
+        List<String> filesNames=uploadedFiles.stream().map(n->n.fileName()).collect(Collectors.toList());
+
+        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPLOAD_FILE, user);
+
 
 
         CreateCourrielResponse response = CreateCourrielResponse.builder()
@@ -391,6 +413,7 @@ public class CourrielService {
 
 
     public ApiResponse<DeleteFileResponse> removeFileFromCourriel(String courrielNumber, String filename) {
+
 
         // get authentified user
         String user=getUser();
@@ -424,8 +447,12 @@ public class CourrielService {
         courrielRepository.save(courriel);
 
 
-        // Notification
-        notificationWebSocketService.sendNotification(" Files Deleted ","Courriel with number : "+courriel.getCourrielNumber(), Operations.DELETE_FILE, user);
+        // 📢 Notification  WebSocket
+
+        List<String> filesNames=List.of(filename);
+
+        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPDATE, user);
+
 
 
         DeleteFileResponse response = DeleteFileResponse.builder()
@@ -494,6 +521,13 @@ public class CourrielService {
 
     private String sanitize(String input) {
         return input.replaceAll("[^a-zA-Z0-9-_]", "_");
+    }
+
+    private Set<String> CleaningFilesNames(List<String> uploadedFiles) {
+
+        return  uploadedFiles.stream()
+                .map(name -> name.replaceFirst("\\.gz$", "")) // ✅ Delete ".gz"
+                .collect(Collectors.toSet());
     }
     }
 
