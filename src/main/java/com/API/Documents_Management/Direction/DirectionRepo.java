@@ -5,4 +5,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DirectionRepo extends JpaRepository<Direction,Long> {
+    Direction findByName(String name);
 }

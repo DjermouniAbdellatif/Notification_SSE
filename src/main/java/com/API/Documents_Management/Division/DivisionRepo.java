@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DivisionRepo extends JpaRepository<Division,Long> {
+    Division findByName(String name);
 }

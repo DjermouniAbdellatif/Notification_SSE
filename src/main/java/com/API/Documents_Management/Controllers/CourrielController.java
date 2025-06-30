@@ -1,10 +1,12 @@
 package com.API.Documents_Management.Controllers;
 
 import com.API.Documents_Management.Dto.*;
+import com.API.Documents_Management.Entities.Courriel;
 import com.API.Documents_Management.Services.CourrielService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +21,19 @@ import java.util.List;
 public class CourrielController {
 
     private final CourrielService courrielService;
+
+    //===================== Filter ===============================================
+
+    @PostMapping("/filter")
+    public ResponseEntity<Page<Courriel>> filterCourriels(
+            @RequestBody CourrielFilterRequest filterRequest,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<Courriel> result = courrielService.filterCourriels(filterRequest, page, size);
+        return ResponseEntity.ok(result);
+    }
+
 
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<CreateCourrielResponse>> createCourriel(

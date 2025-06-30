@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SousDierctionRepo extends JpaRepository<SousDirection,Long> {
+    SousDirection findByName(String name);
+
 }

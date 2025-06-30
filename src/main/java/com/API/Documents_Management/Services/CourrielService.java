@@ -8,6 +8,7 @@ import com.API.Documents_Management.Enums.CourrielType;
 import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Exceptions.*;
 import com.API.Documents_Management.Exceptions.FileNotFoundException;
+import com.API.Documents_Management.Filters.CourrielSpecifications;
 import com.API.Documents_Management.Repositories.*;
 import com.API.Documents_Management.Entities.*;
 
@@ -16,6 +17,10 @@ import com.API.Documents_Management.WebSocket.NotificationWebSocketService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -65,6 +70,18 @@ public class CourrielService {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return (auth != null) ? auth.getName() : "anonymous";
     }
+
+
+    //===================== Filter ==========================================
+
+
+    public Page<Courriel> filterCourriels(CourrielFilterRequest filter,int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return courrielRepository.findAll(CourrielSpecifications.withFilters(filter), pageable);
+    }
+
+
+    //===================== Create  ==========================================
 
     public ApiResponse<CreateCourrielResponse> createCourriel(CreateCourrielRequest request) throws IOException {
 
@@ -164,8 +181,6 @@ public class CourrielService {
             Courriel courriel = Courriel.builder()
                     .courrielNumber(request.courrielNumber())
                     .courrielType(CourrielType.ENTRANT_INTERN)
-                    .fromDivision(divisionRepo.findById(1L).get())
-                    .toDivision(divisionRepo.findById(1L).get())
                     .courrielPath(folderPath.toString())
                     .courrielFiles(courrielFiles)
                     .build();

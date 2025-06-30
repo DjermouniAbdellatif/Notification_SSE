@@ -7,6 +7,7 @@ import com.API.Documents_Management.Division.DivisionRepo;
 import com.API.Documents_Management.Entities.AppUser;
 import com.API.Documents_Management.Enums.HierarchyLevel;
 import com.API.Documents_Management.Repositories.AppUserRepo;
+import com.API.Documents_Management.Services.AuthService;
 import com.API.Documents_Management.SousDirection.SousDierctionRepo;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import com.API.Documents_Management.Utils.UserHierarchyUtil;
@@ -24,6 +25,7 @@ public class AddRunner {
 
 
 
+    private final AuthService authService;
     private final AppUserRepo appUserRepo;
     private final DivisionRepo divisionRepo;
     private final DirectionRepo directionRepo;
@@ -34,11 +36,7 @@ public class AddRunner {
       return args -> {
 
 
-            Division division = divisionRepo.findById(1L).get();
-
-          appUserRepo.findAllByDirection_DivisionWithDivisionLoaded(division).stream()
-                  .forEach(u->System.out.println(u.getDivision().getName()));
-
+          System.out.println("Application started successfully... ");
 
 
        };
