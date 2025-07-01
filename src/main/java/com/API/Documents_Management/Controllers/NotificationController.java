@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,53 +21,63 @@ import java.util.Optional;
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
-
     private final NotificationWebSocketService notificationService;
-    private final AuthService authService;
-    private final NotificationRepo notificationRepo;
 
+    /**
+     * 🔔 Récupérer toutes les notifications
+     */
     @GetMapping("/all")
-    public ResponseEntity<List<NotificationEntity>> getAllNotifications() {
-        AppUser currentUser = authService.getAuthenticatedUser();
-        List<NotificationEntity> notifications = notificationService.getAllNotifications(currentUser);
+    public ResponseEntity<List<NotificationEntity>> getAllNotificationsForUser() {
+
+        var notifications = notificationService.getAllNotifications();
         return ResponseEntity.ok(notifications);
     }
 
+    /**
+     * 🔔 Récupérer toutes les notifications pour User
+     */
     @GetMapping("/mine")
-    public ResponseEntity<List<NotificationEntity>> getMyNotifications() {
-        AppUser currentUser = authService.getAuthenticatedUser();
-        List<NotificationEntity> notifications = notificationService.getNotificationsForUser(currentUser);
+    public ResponseEntity<List<NotificationEntity>> getNotificationsForUser(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
+        var currentUser = currentUserDetails.getUser();
+        var notifications = notificationService.getNotificationsForUser(currentUser);
         return ResponseEntity.ok(notifications);
     }
 
+    /**
+     * 🔔 Récupérer uniquement les notifications non lues
+     */
     @GetMapping("/unread")
-    public ResponseEntity<List<NotificationEntity>> getUnreadNotifications() {
-        AppUser currentUser = authService.getAuthenticatedUser();
-        List<NotificationEntity> unread = notificationService.getUnreadNotifications(currentUser);
-        return ResponseEntity.ok(unread);
+    public ResponseEntity<List<NotificationEntity>> getUnreadNotifications(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
+        var currentUser = currentUserDetails.getUser();
+        var unreadNotifications = notificationService.getUnreadNotifications(currentUser);
+        return ResponseEntity.ok(unreadNotifications);
     }
 
-    @PutMapping("/mark-as-read/{id}")
-    public ResponseEntity<List<NotificationEntity>> markAsReadAndGetUnread(@PathVariable Long id) {
-        AppUser currentUser = authService.getAuthenticatedUser();
+    /**
+     * ✅ Marquer toutes les notifications non lues comme lues
+     */
+    @PutMapping("/mark-all-read")
+    public ResponseEntity<String> markAllAsRead(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
+        var currentUser = currentUserDetails.getUser();
+        notificationService.markAllUnreadNotificationsAsRead(currentUser);
+        return ResponseEntity.ok("All unread notifications have been marked as read");
+    }
 
-        // Récupérer la notification à marquer
-        NotificationEntity notification = notificationRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+    /**
+     * ✅ Marquer une notification spécifique comme lue (par ID)
+     */
+    @PutMapping("/mark-read/{id}")
+    public ResponseEntity<String> markAsReadById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUserDetails) {
 
-        // Vérification facultative : appartient bien à la hiérarchie
-        if (notification.getEmail().equalsIgnoreCase(currentUser.getUsername())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // ne pas marquer sa propre notif
+        var currentUser = currentUserDetails.getUser();
+        boolean success = notificationService.markNotificationAsReadById(id, currentUser);
+
+        if (success) {
+            return ResponseEntity.ok("Notification marked as read");
+        } else {
+            return ResponseEntity.badRequest().body("Notification not found or not accessible");
         }
-
-        // Marquer comme lue
-        notification.setRead(true);
-        notificationRepo.save(notification);
-
-        // Retourner la liste mise à jour
-        List<NotificationEntity> unread = notificationService.getUnreadNotifications(currentUser);
-        return ResponseEntity.ok(unread);
     }
-
-
-}
+    }

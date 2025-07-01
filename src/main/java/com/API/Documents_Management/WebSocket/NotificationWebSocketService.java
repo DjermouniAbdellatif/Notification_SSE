@@ -20,10 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -38,14 +35,14 @@ public class NotificationWebSocketService {
     private final SousDierctionRepo sousDierctionRepo;
     private final DivisionRepo divisionRepo;
 
-    public List<NotificationEntity> getAllNotifications(AppUser currentUser) {
 
-        List<NotificationEntity> notifications = notificationRepo.findAll();
 
-        // Exclure celles créées par le user lui-même
-        return notifications.stream()
-                .filter(notification -> !notification.getEmail().equalsIgnoreCase(currentUser.getUsername()))
-                .collect(Collectors.toList());
+    public List<NotificationEntity> getAllNotifications() {
+
+       List<NotificationEntity>notifications= notificationRepo.findAll();
+
+       return ((notifications.isEmpty()) ? new ArrayList<>() : notifications);
+
     }
 
 
@@ -75,9 +72,43 @@ public class NotificationWebSocketService {
                 .collect(Collectors.toList());
     }
 
-    public void markNotificationsAsRead(List<NotificationEntity> notifications) {
-        notifications.forEach(notification -> notification.setRead(true));
-        notificationRepo.saveAll(notifications);
+    public void markAllUnreadNotificationsAsRead(AppUser currentUser) {
+        // Récupérer toutes les notifications non lues
+        List<NotificationEntity> unreadNotifications = getUnreadNotifications(currentUser);
+
+        // Les marquer comme lues
+        unreadNotifications.forEach(notification -> notification.setRead(true));
+
+        // Sauvegarder les changements en base
+        notificationRepo.saveAll(unreadNotifications);
+    }
+
+    public boolean markNotificationAsReadById(Long id, AppUser currentUser) {
+        // Récupérer la notification
+        Optional<NotificationEntity> optionalNotification = notificationRepo.findById(id);
+
+        if (optionalNotification.isPresent()) {
+            NotificationEntity notification = optionalNotification.get();
+
+            // Vérifier si la notification appartient bien au user (filtrage hiérarchique)
+            boolean belongsToUser = (
+                    (currentUser.getSousDirection() != null && notification.getSousDirectionId() != null
+                            && currentUser.getSousDirection().getId().equals(notification.getSousDirectionId()))
+                            || (currentUser.getDirection() != null && notification.getDirectionId() != null
+                            && currentUser.getDirection().getId().equals(notification.getDirectionId()))
+                            || (currentUser.getDivision() != null && notification.getDivisionId() != null
+                            && notification.getSousDirectionId() == null
+                            && currentUser.getDivision().getId().equals(notification.getDivisionId()))
+            );
+
+            if (belongsToUser) {
+                notification.setRead(true);
+                notificationRepo.save(notification);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void sendNotification(String message, String courrielNumber, Set<String> filesNames, Operations operation, String creator) {
