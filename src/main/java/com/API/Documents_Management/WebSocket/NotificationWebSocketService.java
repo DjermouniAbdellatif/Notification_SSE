@@ -17,7 +17,6 @@ import com.API.Documents_Management.SousDirection.SousDirection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -72,38 +71,44 @@ public class NotificationWebSocketService {
                 .collect(Collectors.toList());
     }
 
+
+
     public void markAllUnreadNotificationsAsRead(AppUser currentUser) {
-        // Récupérer toutes les notifications non lues
-        List<NotificationEntity> unreadNotifications = getUnreadNotifications(currentUser);
+        // Récupérer toutes les notifications visibles pour le user
+        List<NotificationEntity> visibleNotifications = getNotificationsForUser(currentUser);
+
+        // Filtrer celles qui ne sont PAS encore lues
+        List<NotificationEntity> unreadNotifications = visibleNotifications.stream()
+                .filter(notification -> !notification.isRead())
+                .collect(Collectors.toList());
 
         // Les marquer comme lues
         unreadNotifications.forEach(notification -> notification.setRead(true));
 
-        // Sauvegarder les changements en base
-        notificationRepo.saveAll(unreadNotifications);
+        // Puis supprimer directement
+        notificationRepo.deleteAll(unreadNotifications);
     }
 
-    public boolean markNotificationAsReadById(Long id, AppUser currentUser) {
-        // Récupérer la notification
+    public boolean readNotificationById(Long id, AppUser currentUser) {
         Optional<NotificationEntity> optionalNotification = notificationRepo.findById(id);
 
         if (optionalNotification.isPresent()) {
             NotificationEntity notification = optionalNotification.get();
 
-            // Vérifier si la notification appartient bien au user (filtrage hiérarchique)
             boolean belongsToUser = (
                     (currentUser.getSousDirection() != null && notification.getSousDirectionId() != null
                             && currentUser.getSousDirection().getId().equals(notification.getSousDirectionId()))
-                            || (currentUser.getDirection() != null && notification.getDirectionId() != null
-                            && currentUser.getDirection().getId().equals(notification.getDirectionId()))
-                            || (currentUser.getDivision() != null && notification.getDivisionId() != null
-                            && notification.getSousDirectionId() == null
-                            && currentUser.getDivision().getId().equals(notification.getDivisionId()))
+                            ||
+                            (currentUser.getDirection() != null && notification.getDirectionId() != null
+                                    && currentUser.getDirection().getId().equals(notification.getDirectionId()))
+                            ||
+                            (currentUser.getDivision() != null && notification.getDivisionId() != null
+                                    && notification.getSousDirectionId() == null
+                                    && currentUser.getDivision().getId().equals(notification.getDivisionId()))
             );
 
             if (belongsToUser) {
-                notification.setRead(true);
-                notificationRepo.save(notification);
+                notificationRepo.delete(notification);
                 return true;
             }
         }
