@@ -1,14 +1,17 @@
 package com.API.Documents_Management.WebSocket;
 
+
 import com.API.Documents_Management.Direction.Direction;
 import com.API.Documents_Management.Direction.DirectionRepo;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management.Division.DivisionRepo;
 import com.API.Documents_Management.Entities.AppUser;
+
 import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Enums.RoleType;
 import com.API.Documents_Management.Repositories.AppUserRepo;
 import com.API.Documents_Management.Repositories.NotificationRepo;
+
 import com.API.Documents_Management.SousDirection.SousDierctionRepo;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import lombok.RequiredArgsConstructor;
@@ -23,21 +26,90 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+
 @Service
 @RequiredArgsConstructor
 public class NotificationWebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final AppUserRepo userRepo;
     private final NotificationRepo notificationRepo;
-    private final DivisionRepo divisionRepo;
+    private final AppUserRepo userRepo;
     private final DirectionRepo directionRepo;
     private final SousDierctionRepo sousDierctionRepo;
+    private final DivisionRepo divisionRepo;
+
+    public List<NotificationEntity> getAllNotifications(AppUser currentUser) {
+
+        List<NotificationEntity> notifications = notificationRepo.findAll();
+
+        // Exclure celles créées par le user lui-même
+        return notifications.stream()
+                .filter(notification -> !notification.getEmail().equalsIgnoreCase(currentUser.getUsername()))
+                .collect(Collectors.toList());
+    }
 
 
-    // Methode to save notification
+    public List<NotificationEntity> getNotificationsForUser(AppUser currentUser) {
+
+        List<NotificationEntity>notifications=new ArrayList<>();
+
+        if (currentUser.getSousDirection() != null) {
+            notifications= notificationRepo.findBySousDirectionId(currentUser.getSousDirection().getId());
+        } else if (currentUser.getDirection() != null) {
+            notifications= notificationRepo.findByDirectionId(currentUser.getDirection().getId());
+        } else if (currentUser.getDivision() != null) {
+            notifications= notificationRepo.findByDivisionIdAndSousDirectionIdIsNull(currentUser.getDivision().getId());
+        }
+
+        // Exclure les notifications créées par le user lui-même
+
+        return notifications.stream()
+                .filter(notification -> !notification.getEmail().equalsIgnoreCase(currentUser.getUsername()))
+                .collect(Collectors.toList());
+    }
+
+    public List<NotificationEntity> getUnreadNotifications(AppUser currentUser) {
+        return getNotificationsForUser(currentUser).stream()
+                .filter(notification -> !notification.getEmail().equalsIgnoreCase(currentUser.getUsername()))
+                .filter(notification -> !notification.isRead())
+                .collect(Collectors.toList());
+    }
+
+    public void markNotificationsAsRead(List<NotificationEntity> notifications) {
+        notifications.forEach(notification -> notification.setRead(true));
+        notificationRepo.saveAll(notifications);
+    }
+
+    public void sendNotification(String message, String courrielNumber, Set<String> filesNames, Operations operation, String creator) {
+        userRepo.findAppUserByUsername(creator).ifPresent(sender -> {
+            String timestamp = LocalDateTime.now().toString();
+
+            NotificationMessage notificationMsg = NotificationMessage.builder()
+                    .email(sender.getUsername())
+                    .divisionName(sender.getDivision() != null ? sender.getDivision().getName() : null)
+                    .directionName(sender.getDirection() != null ? sender.getDirection().getName() : null)
+                    .sousDirectionName(sender.getSousDirection() != null ? sender.getSousDirection().getName() : null)
+                    .message(message)
+                    .courrielNumber(courrielNumber)
+                    .filesNames(filesNames)
+                    .operation(operation.name())
+                    .time(timestamp)
+                    .build();
+
+            // Sauvegarde la notification une seule fois dans la BDD
+            saveNotification(notificationMsg);
+
+            // Déterminer les destinataires en fonction de la hiérarchie
+            Set<String> recipients = resolveRecipientsByHierarchy(sender);
+
+            // Envoyer la notification par WebSocket à chaque destinataire
+            recipients.forEach(username -> {
+                messagingTemplate.convertAndSend("/topic/notifications/" + username.toLowerCase(), notificationMsg);
+            });
+        });
+    }
+
     public void saveNotification(NotificationMessage message) {
-
         Division division = (message.getDivisionName() == null ? null : divisionRepo.findByName(message.getDivisionName()));
         Direction direction = (message.getDirectionName() == null ? null : directionRepo.findByName(message.getDirectionName()));
         SousDirection sousDirection = (message.getSousDirectionName() == null ? null : sousDierctionRepo.findByName(message.getSousDirectionName()));
@@ -58,125 +130,18 @@ public class NotificationWebSocketService {
         notificationRepo.save(entity);
     }
 
-
-
-    // Methode to get All Notifications
-    public List<NotificationEntity> getAllNotifications() {
-
-        return notificationRepo.findAll().stream().toList();
-    }
-
-    // Methode to get All Notifications By user
-    public List<NotificationEntity> getNotificationsForUser(AppUser currentUser) {
-
-        List<NotificationEntity> notifications=new ArrayList<>();
-        // Cas 1 : Simple user => aucune notification
-
-        if (currentUser.getSousDirection() != null) {
-            return List.of(); // Simple user ne reçoit rien
-        }
-        // Cas 2 : Directeur => direction + sous-directions
-        else if (currentUser.getDirection() != null) {
-            notifications= notificationRepo.findByDirectionId(currentUser.getDirection().getId());
-        }
-        // Cas 3 : Chef de division => division + directions attachées (sans sous-directions)
-        else if (currentUser.getDivision() != null) {
-            notifications= notificationRepo.findByDivisionIdAndSousDirectionIdIsNull(currentUser.getDivision().getId());
-        }
-
-        // Filtrer pour enlever celles créées par soi-même
-        return notifications.stream()
-                .filter(n -> !n.getEmail().equalsIgnoreCase(currentUser.getUsername()))
-                .collect(Collectors.toList());
-    }
-
-    // Méthode pour récupérer les notifications non lues d'un utilisateur donné
-    @Transactional
-    public List<NotificationEntity> getUnreadNotifications(AppUser user) {
-        Long divisionId = user.getDivision() != null ? user.getDivision().getId() : null;
-        Long directionId = user.getDirection() != null ? user.getDirection().getId() : null;
-        Long sousDirectionId = user.getSousDirection() != null ? user.getSousDirection().getId() : null;
-
-        List<NotificationEntity> unreadNotifications = notificationRepo.findUnreadNotificationsForUser(
-                divisionId,
-                directionId,
-                sousDirectionId
-        );
-
-        unreadNotifications.forEach(n -> n.setRead(true));
-        notificationRepo.saveAll(unreadNotifications);
-
-        return unreadNotifications;
-    }
-
-
-
-
-    // Methode to Send notification by hierarchy
-    public void sendNotification(String message, String courrielNumber,Set<String>filesNames, Operations operation, String creator) {
-        userRepo.findAppUserByUsername(creator).ifPresent(sender -> {
-            String timestamp = LocalDateTime.now().toString();
-
-            NotificationMessage notificationMsg = NotificationMessage.builder()
-                    .email(sender.getUsername())
-                    .divisionName(sender.getDivision() != null ? sender.getDivision().getName() : null)
-                    .directionName(sender.getDirection() != null ? sender.getDirection().getName() : null)
-                    .sousDirectionName(sender.getSousDirection() != null ? sender.getSousDirection().getName() : null)
-                    .message(message)
-                    .courrielNumber(courrielNumber)
-                    .filesNames(filesNames)
-                    .operation(operation.name())
-                    .time(timestamp)
-                    .build();
-
-            // save notification
-            saveNotification(notificationMsg);
-
-            Set<String> recipients = resolveRecipientsByHierarchy(sender);
-            recipients.forEach(username -> {
-                messagingTemplate.convertAndSend("/topic/notifications/" + username.toLowerCase(), notificationMsg);
-            });
-        });
-    }
-
-    private enum UserHierarchyRole {
-        CHEF_DIVISION,
-        DIRECTEUR,
-        SIMPLE_USER
-    }
-
-    private UserHierarchyRole determineHierarchyRole(AppUser user) {
-        boolean hasDivision = user.getDivision() != null;
-        boolean hasDirection = user.getDirection() != null;
-        boolean hasSousDirection = user.getSousDirection() != null;
-
-
-        if (hasDivision && !hasDirection && !hasSousDirection) {
-            return UserHierarchyRole.CHEF_DIVISION;
-        } else if (isAdmin(user) && hasDivision && hasDirection && !hasSousDirection) {
-            return UserHierarchyRole.DIRECTEUR;
-        } else if (hasDivision && hasDirection && hasSousDirection) {
-            return UserHierarchyRole.SIMPLE_USER;
-        }
-        return UserHierarchyRole.SIMPLE_USER;
-    }
-
     private Set<String> resolveRecipientsByHierarchy(AppUser sender) {
         Set<String> recipients = new HashSet<>();
         UserHierarchyRole senderRole = determineHierarchyRole(sender);
 
         switch (senderRole) {
             case SIMPLE_USER -> {
-
                 recipients.addAll(userRepo.findAllWithRolesByDirection(sender.getDirection()).stream()
                         .filter(u -> determineHierarchyRole(u) == UserHierarchyRole.DIRECTEUR)
                         .map(AppUser::getUsername)
                         .collect(Collectors.toSet()));
             }
-
             case DIRECTEUR -> {
-
-
                 // Autres directeurs de la même direction
                 recipients.addAll(userRepo.findAllWithRolesByDirection(sender.getDirection()).stream()
                         .filter(u -> determineHierarchyRole(u) == UserHierarchyRole.DIRECTEUR
@@ -190,16 +155,38 @@ public class NotificationWebSocketService {
                         .map(AppUser::getUsername)
                         .collect(Collectors.toSet()));
             }
-
             case CHEF_DIVISION -> {
+                // Ne notifie personne
             }
         }
 
         return recipients;
     }
 
+    private enum UserHierarchyRole {
+        CHEF_DIVISION,
+        DIRECTEUR,
+        SIMPLE_USER
+    }
+
+    private UserHierarchyRole determineHierarchyRole(AppUser user) {
+        boolean hasDivision = user.getDivision() != null;
+        boolean hasDirection = user.getDirection() != null;
+        boolean hasSousDirection = user.getSousDirection() != null;
+
+        if (hasDivision && !hasDirection && !hasSousDirection) {
+            return UserHierarchyRole.CHEF_DIVISION;
+        } else if (isAdmin(user) && hasDivision && hasDirection && !hasSousDirection) {
+            return UserHierarchyRole.DIRECTEUR;
+        } else if (hasDivision && hasDirection && hasSousDirection) {
+            return UserHierarchyRole.SIMPLE_USER;
+        }
+        return UserHierarchyRole.SIMPLE_USER;
+    }
+
     private boolean isAdmin(AppUser user) {
         return user.getRoles().stream()
                 .anyMatch(role -> role.getName().equals(RoleType.ADMIN));
     }
+
 }
