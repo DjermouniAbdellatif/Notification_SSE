@@ -1,21 +1,14 @@
 package com.API.Documents_Management.Controllers;
 
-import com.API.Documents_Management.Entities.AppUser;
-import com.API.Documents_Management.Repositories.NotificationRepo;
-import com.API.Documents_Management.Services.AuthService;
 import com.API.Documents_Management.Services_Impl.CustomUserDetails;
 import com.API.Documents_Management.WebSocket.NotificationEntity;
 import com.API.Documents_Management.WebSocket.NotificationWebSocketService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -54,17 +47,17 @@ public class NotificationController {
     }
 
     /**
-     * ✅ Marquer toutes les notifications non lues comme lues
+     * ✅ Marquer toutes les notifications non lues comme lues et les supprimer
      */
     @PutMapping("/mark-all-read")
     public ResponseEntity<String> markAllAsRead(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
         var currentUser = currentUserDetails.getUser();
         notificationService.markAllUnreadNotificationsAsRead(currentUser);
-        return ResponseEntity.ok("All unread notifications have been marked as read");
+        return ResponseEntity.ok("All read notifications have been deleted");
     }
 
     /**
-     * ✅ Marquer une notification spécifique comme lue (par ID)
+     * ✅ Marquer une notification spécifique comme lue (par ID) et la supprimer
      */
     @PutMapping("/mark-read/{id}")
     public ResponseEntity<String> markAsReadById(
@@ -72,7 +65,7 @@ public class NotificationController {
             @AuthenticationPrincipal CustomUserDetails currentUserDetails) {
 
         var currentUser = currentUserDetails.getUser();
-        boolean success = notificationService.markNotificationAsReadById(id, currentUser);
+        boolean success = notificationService.readNotificationById(id, currentUser);
 
         if (success) {
             return ResponseEntity.ok("Notification marked as read");
