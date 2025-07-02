@@ -1,9 +1,8 @@
-package com.API.Documents_Management.WebSocket;
+package com.API.Documents_Management.WebSocket.Entities;
 
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
@@ -29,5 +28,4 @@ public class NotificationEntity {
 
     private String operation;
     private String time;
-    private boolean read;
 }

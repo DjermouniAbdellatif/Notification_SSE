@@ -1,4 +1,4 @@
-package com.API.Documents_Management.WebSocket;
+package com.API.Documents_Management.WebSocket.Dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.API.Documents_Management.WebSocket;
+package com.API.Documents_Management.WebSocket.Config;
 
 import com.API.Documents_Management.Services.JwtService;
 import lombok.RequiredArgsConstructor;

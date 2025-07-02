@@ -7,7 +7,7 @@ import com.API.Documents_Management.Enums.HierarchyLevel;
 public class NotificationTargetChecker {
 
     public static boolean shouldNotify(AppUser user, Courriel courriel) {
-        HierarchyLevel level = UserHierarchyUtil.getUserHierarchy(user);
+        HierarchyLevel level = UserUtil.getUserHierarchy(user);
 
         return switch (level) {
             case CHEF_DIVISION ->
