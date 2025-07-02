@@ -104,7 +104,7 @@ public class AuthServiceImpl implements AuthService {
         // Set authentication in security context
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        log.info("Authenticated user: {}", getAuthenticatedUser().getUsername());
+        //log.info("Authenticated user: {}", getAuthenticatedUser().getUsername());
 
         return tokenPair;
     }

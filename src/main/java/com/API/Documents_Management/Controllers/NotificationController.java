@@ -59,7 +59,7 @@ public class NotificationController {
     /**
      * ✅ Marquer une notification spécifique comme lue (par ID) et la supprimer
      */
-    @PutMapping("/mark-read/{id}")
+    @PutMapping("/{id}/read")
     public ResponseEntity<String> markAsReadById(
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails currentUserDetails) {

@@ -31,7 +31,7 @@ public class CustomeUserService implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        log.info("Loading user by username: {}", username);
+       // log.info("Loading user by username: {}", username);
 
         AppUser user = userRepo.findAppUsersByUsernameWithRoles(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
