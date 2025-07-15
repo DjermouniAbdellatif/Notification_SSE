@@ -298,7 +298,7 @@ public class CourrielService {
                 user
         );
 
-        notificationWebSocketService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE_FILE, user);
+        notificationWebSocketService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE, user);
 
 
 
@@ -464,7 +464,7 @@ public class CourrielService {
 
         List<String> filesNames=List.of(filename);
 
-        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPDATE, user);
+        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.DELETE_FILE, user);
 
 
 

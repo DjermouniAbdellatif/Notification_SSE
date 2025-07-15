@@ -29,7 +29,7 @@ public class NotificationController {
         public ResponseEntity<ApiResponse<List<NotificationDTO>>> getAllNotificationsForUser() {
 
         List<NotificationDTO> data = notificationService.getAllNotifications();
-        boolean success=(data != null);
+        boolean success=(!data.isEmpty());
         String msg=(success?"Notifications Trouvées ":"Aucune notification Trouvée !");
 
         return ResponseEntity.ok(new ApiResponse<>(success,msg,data));
@@ -45,7 +45,7 @@ public class NotificationController {
         AppUser currentUser = UserUtil.getAuthenticatedUser();
 
         var data = notificationService.getNotificationsForUser(currentUser);
-        boolean success=(data != null);
+        boolean success=(!data.isEmpty());
         String msg=(success?"Notifications Trouvées ":"Aucune notification Trouvée pour l'utilisateur :"+currentUser.getUsername());
 
         return ResponseEntity.ok(new ApiResponse<>(success,msg,data));
@@ -80,7 +80,7 @@ public class NotificationController {
         List<NotificationDTO>data= notificationService.readAllNotificationsByUser(currentUser);
 
         boolean success=(!data.isEmpty());
-        String msg=(success?"Notifications Lues avec Succès":"Erreur lors de lecture de la notification ");
+        String msg=(success?"Notifications Lues avec Succès":"Aucune notification trouvée pour l'utilisateur :"+currentUser.getUsername());
 
         return ResponseEntity.ok(new ApiResponse<>(success,msg,data));
     }

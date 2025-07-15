@@ -81,7 +81,6 @@ public class NotificationWebSocketService {
                .collect(Collectors.toList());
     }
 
-
     // OK Tested
     @Transactional
     public NotificationDTO readNotificationById(Long id, AppUser currentUser) {
@@ -96,8 +95,6 @@ public class NotificationWebSocketService {
         }
 
         }
-
-
 
     // OK Tested
     public void sendNotification(String message, String courrielNumber, Set<String> filesNames, Operations operation, String creator) {
@@ -230,5 +227,22 @@ public class NotificationWebSocketService {
         return user.getRoles().stream()
                 .anyMatch(role -> role.getName().equals(RoleType.ADMIN));
     }
+
+
+    @Transactional
+    public int deleteOrphanNotifications() {
+        List<Long> orphanIds = notificationRepo.findOrphanNotificationIds();
+
+        if (orphanIds.isEmpty()) {
+            return 0;
+        }
+
+        // Supprimer  les entrées dans la table des filesNames
+        notificationRepo.deleteFilesNamesByNotificationIds(orphanIds);
+
+        //  supprimer les notifications orphelines elles-mêmes
+        return notificationRepo.deleteNotificationsByIds(orphanIds);
+    }
+
 
 }

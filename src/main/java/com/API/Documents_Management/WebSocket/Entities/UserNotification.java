@@ -29,6 +29,4 @@ public class UserNotification {
     @JoinColumn(name = "notification_id", nullable = false)
     private NotificationEntity notification;
 
-
-    private boolean read = false;
 }
