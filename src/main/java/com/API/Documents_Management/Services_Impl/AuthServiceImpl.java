@@ -16,6 +16,7 @@ import com.API.Documents_Management.Repositories.TokenRepo;
 import com.API.Documents_Management.Services.AuthService;
 
 
+import com.API.Documents_Management.Services.CustomeUserService;
 import com.API.Documents_Management.Services.JwtService;
 
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -47,19 +51,20 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
-    // Register User Methode
-
+    /**
+     * Register a new user
+     */
     @Transactional
     public void registerUser(RegisterRequest registerRequest) {
-
-        if(userRepo.findAppUsersByUsernameWithRoles(registerRequest.getUsername()).isPresent()) {
-            throw new IllegalArgumentException("Username is already Existe");
+        if (userRepo.findAppUsersByUsernameWithRoles(registerRequest.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Username is already taken");
         }
 
         AppUser appUser = new AppUser();
         appUser.setUsername(registerRequest.getUsername());
         appUser.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
 
+        // Assign roles
         Set<Role> persistentRoles = new HashSet<>();
         registerRequest.getRoles().forEach(role -> {
             Role persistentRole = roleRepository.findByName(role.getName())
@@ -68,17 +73,14 @@ public class AuthServiceImpl implements AuthService {
         });
         appUser.setRoles(persistentRoles);
 
-
         userRepo.save(appUser);
     }
 
-
-    // Login Method
-
-    public TokenPair login(LoginRequest loginRequest){
-
-        //Authenticate User
-
+    /**
+     * User login
+     */
+    public TokenPair login(LoginRequest loginRequest) {
+        // Authenticate credentials
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(),
@@ -86,77 +88,57 @@ public class AuthServiceImpl implements AuthService {
                 )
         );
 
-        TokenPair tokenPair=jwtService.generateTokenPair(authentication);
+        // Generate JWT token pair
+        TokenPair tokenPair = jwtService.generateTokenPair(authentication);
 
-        AppUser appUser = userRepo.findAppUserByUsername(loginRequest.getUsername()).orElse(null);
+        // Load user
+        AppUser appUser = userRepo.findAppUserByUsername(loginRequest.getUsername())
+                .orElseThrow(() -> new UserNotFoundException(loginRequest.getUsername()));
 
-        if(appUser==null) {
-            throw new UserNotFoundException(loginRequest.getUsername());
-        }
-
-         // revoke all old tokens
+        // Revoke old tokens
         revokeAllUserTokens(appUser);
 
+        // Save new refresh token
+        saveUserToken(appUser, tokenPair.getRefreshToken());
 
-        saveUserToken(appUser,tokenPair.getRefreshToken());
-
-        // Set security on security Context
-
+        // Set authentication in security context
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-
+        //log.info("Authenticated user: {}", getAuthenticatedUser().getUsername());
 
         return tokenPair;
-
     }
 
-
-
-    // Generate new Tokens Method
-
+    /**
+     * Refresh access token using a valid refresh token
+     */
     public TokenPair refreshToken(RefreshTokenRequest request) {
-
         String refreshToken = request.getRefreshToken();
 
-        // Vérifier si le refresh token est valide
-        
         if (!jwtService.isRefreshToken(refreshToken)) {
-            throw new InvalidRefreshTokenException("Refresh token is invalid or has expired.");
+            throw new InvalidRefreshTokenException("Invalid or expired refresh token");
         }
-
-
 
         String username = jwtService.extractUsernameFromToken(refreshToken);
 
-
-
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-
-
         if (userDetails == null) {
             throw new UserNotFoundException("User not found for username: " + username);
         }
 
-
         UsernamePasswordAuthenticationToken authenticationToken =
                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
-        // Générer le nouveau access token
+        String newAccessToken = jwtService.generateAccessToken(authenticationToken);
 
-        String accessToken = jwtService.generateAccessToken(authenticationToken);
-
-
-
-        return new TokenPair(accessToken, refreshToken);
+        return new TokenPair(newAccessToken, refreshToken);
     }
 
-
-    // save token Methode
-    private void saveUserToken(AppUser appUser, String jwtToken  ) {
-
-        Token token= new Token();
-
+    /**
+     * Save a refresh token to database
+     */
+    private void saveUserToken(AppUser appUser, String jwtToken) {
+        Token token = new Token();
         token.setToken(jwtToken);
         token.setRevoked(false);
         token.setExpired(false);
@@ -164,24 +146,39 @@ public class AuthServiceImpl implements AuthService {
         token.setTokenType(String.valueOf(TokenType.REFRESH));
 
         tokenRepo.save(token);
-
     }
 
-    // Methode to  Revoke all user Tokens
-    private void revokeAllUserTokens(AppUser appUser){
+    /**
+     * Revoke all valid tokens for a user
+     */
+    private void revokeAllUserTokens(AppUser appUser) {
+        var validTokens = tokenRepo.findAllValidTokenByUser(appUser.getId());
 
-        var validTokens=tokenRepo.findAllValidTokenByUser(appUser.getId());
-
-        if(validTokens.isEmpty()){
+        if (validTokens.isEmpty()) {
             return;
         }
 
         validTokens.forEach(token -> {
-           token.setRevoked(true);
-           token.setExpired(true);
-
+            token.setRevoked(true);
+            token.setExpired(true);
         });
 
         tokenRepo.saveAll(validTokens);
+    }
+
+    /**
+     * Get the currently authenticated user
+     */
+    public AppUser getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("No authenticated user");
+        }
+
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        return userRepo.findAppUserByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

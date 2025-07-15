@@ -5,6 +5,7 @@ import com.API.Documents_Management.Dto.TokenPair;
 import com.API.Documents_Management.Entities.Role;
 import com.API.Documents_Management.Enums.RoleType;
 import com.API.Documents_Management.Repositories.RoleRepo;
+import com.API.Documents_Management.Services_Impl.CustomUserDetails;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -22,11 +23,9 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.util.*;
 import java.util.stream.Collectors;
-
 @Slf4j
 @Service
 public class JwtService {
-
 
     @Autowired
     private RoleRepo roleRepo;
@@ -41,131 +40,55 @@ public class JwtService {
     private Long refreshExpirationMs;
 
     private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
-
-
-
     private static final String TOKEN_PREFIX = "Bearer ";
 
-    // Generate access Token
+    // 🔑 Générer access token
     public String generateAccessToken(Authentication authentication) {
-
         Map<String, Object> claims = new HashMap<>();
         claims.put("tokenType", "access");
-
-
-        return generateToken(authentication,jwtExpirationMs,claims);
-
-
+        return generateToken(authentication, jwtExpirationMs, claims);
     }
 
-
-
-    // Generate refresh Token
+    // 🔑 Générer refresh token
     public String generateRefreshToken(Authentication authentication) {
-
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-
-        Date now = new Date(); // time of creation
-        Date expirationDate = new Date(now.getTime() + refreshExpirationMs); // Time of token Expiration
-
         Map<String, Object> claims = new HashMap<>();
         claims.put("tokenType", "refresh");
-
-
-        return generateToken(authentication,refreshExpirationMs,claims);
-
-
+        return generateToken(authentication, refreshExpirationMs, claims);
     }
 
-    // Validate Token
-
-    public Boolean validateTokenForUser(String token, UserDetails userDetails) {
-        final String username = extractUsernameFromToken(token);
-
-        return (username!=null && username.equals(userDetails.getUsername()) );
+    // 🔑 Générer les deux tokens
+    public TokenPair generateTokenPair(Authentication authentication) {
+        String accessToken = generateAccessToken(authentication);
+        String refreshToken = generateRefreshToken(authentication);
+        return new TokenPair(accessToken, refreshToken);
     }
 
-
-    public Boolean isValidToken(String token) {
-        return extractUsernameFromToken(token)!=null;
-    }
-
-
-    public String extractUsernameFromToken(String token) {
-
-        Claims claims=extractAllClaims(token);
-
-        if(claims!=null) {
-            return claims.getSubject();
-        }
-
-        return null;
-    }
-
-
-    // Validate if Token is refresh Token
-
-    public Boolean isRefreshToken(String token) {
-       Claims claims= extractAllClaims(token);
-
-       if(claims ==null) {
-           return false;
-
-       }
-
-       return "refresh".equals(claims.get("tokenType"));
-
-    }
-
-
-    private SecretKey getSigninKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-
+    // ✅ Générer token avec claims
     private String generateToken(Authentication authentication, Long expirationMs, Map<String, Object> claims) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-
+        CustomUserDetails userPrincipal = (CustomUserDetails) authentication.getPrincipal();
         String username = userPrincipal.getUsername();
-
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + expirationMs);
 
+        // Rôles depuis AppUser
+        List<String> roles = userPrincipal.getUser().getRoles().stream()
+                .map(role -> role.getName().name())
+                .toList();
+        claims.put("roles", roles);
 
-        //Ajouter les roles au token
-
-        List<String> roleNames = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList();
-        claims.put("roles",roleNames);
-
-
-        // Ajouter toutes les authorities  au token
-
-        Set<String> allAuthorities = new HashSet<>();
-
-        for (String roleName : roleNames) {
-
-
-            RoleType roleType = RoleType.valueOf(roleName.substring(5));  // Eliminer ("ROLE_")
-
-            roleRepo.findByName(roleType).ifPresent(role -> {
-                role.getAuthorities().forEach(authority -> {
-                    allAuthorities.add(String.valueOf(authority.getName()));
-                });
+        // Authorities depuis AppUser
+        Set<String> authorities = new HashSet<>();
+        userPrincipal.getUser().getRoles().forEach(role -> {
+            role.getAuthorities().forEach(authority -> {
+                authorities.add(authority.getName().name());
             });
-        }
-
-        claims.put("authorities", allAuthorities);
-
-
-
-
-
+        });
+        claims.put("authorities", authorities);
 
         return Jwts.builder()
                 .header()
                 .and()
-                .subject(userPrincipal.getUsername())
+                .subject(username)
                 .claims(claims)
                 .issuedAt(now)
                 .expiration(expirationDate)
@@ -173,17 +96,30 @@ public class JwtService {
                 .compact();
     }
 
-
-    public TokenPair generateTokenPair(Authentication authentication) {
-
-        String accessToken = generateAccessToken(authentication);
-        String refreshToken = generateRefreshToken(authentication);
-
-        return new TokenPair(accessToken, refreshToken);
+    // ✅ Validation token pour un user
+    public Boolean validateTokenForUser(String token, UserDetails userDetails) {
+        final String username = extractUsernameFromToken(token);
+        return (username != null && username.equals(userDetails.getUsername()));
     }
 
-    // Extrait tous les claims du token JWT
+    public Boolean isValidToken(String token) {
+        return extractUsernameFromToken(token) != null;
+    }
 
+    public String extractUsernameFromToken(String token) {
+        Claims claims = extractAllClaims(token);
+        if (claims != null) {
+            return claims.getSubject();
+        }
+        return null;
+    }
+
+    public Boolean isRefreshToken(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims != null && "refresh".equals(claims.get("tokenType"));
+    }
+
+    // ✅ Extraire tous les claims
     public Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigninKey())
@@ -192,8 +128,7 @@ public class JwtService {
                 .getBody();
     }
 
-    // Extrait la liste des rôles depuis le token
-
+    // ✅ Extraire rôles
     public List<String> extractRoles(String token) {
         Claims claims = extractAllClaims(token);
         Object rolesObj = claims.get("roles");
@@ -205,11 +140,21 @@ public class JwtService {
         return Collections.emptyList();
     }
 
-
-    //Extrait la liste des permission
-
+    // ✅ Extraire permissions (authorities)
     public List<String> extractPermissions(String token) {
         Claims claims = extractAllClaims(token);
-        return claims.get("authorities", List.class);
+        Object authObj = claims.get("authorities");
+        if (authObj instanceof List<?>) {
+            return ((List<?>) authObj).stream()
+                    .map(Object::toString)
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+
+    // ✅ Générer clé de signature
+    private SecretKey getSigninKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

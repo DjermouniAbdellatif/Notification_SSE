@@ -27,16 +27,5 @@ public class DocumentsManagementApplication {
 
 	}
 
-	@Bean
-	@Transactional
-	public CommandLineRunner commandLineRunner(ApplicationContext ctx, CourrielService courrielService, FileRepo fileRepo, CourrielRepo courrielRepo) {
-		return args -> {
-			System.out.println("\n Application Started successfully ......");
-
-
-		};
-
-
-	}
 
 }
