@@ -1,7 +1,7 @@
 package com.API.Documents_Management.Components;
 
 import com.API.Documents_Management.Services.CourrielService;
-import com.API.Documents_Management.WebSocket.Services.NotificationWebSocketService;
+import com.API.Documents_Management.Notification.Services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class DatabaseCleanupScheduler {
 
     private final CourrielService courrielService;
-    private final NotificationWebSocketService notificationService;
+    private final NotificationService notificationService;
 
     // Methode will be executed every thursday at 12h00
 

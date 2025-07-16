@@ -12,7 +12,7 @@ import com.API.Documents_Management.Repositories.*;
 import com.API.Documents_Management.Entities.*;
 
 import com.API.Documents_Management.Utils.FormatUtils;
-import com.API.Documents_Management.WebSocket.Services.NotificationWebSocketService;
+import com.API.Documents_Management.Notification.Services.NotificationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -39,7 +39,7 @@ import java.util.zip.GZIPOutputStream;
 @Service
 public class CourrielService {
 
-    private final NotificationWebSocketService notificationWebSocketService;
+    private final NotificationService notificationService;
     private final CourrielRepo courrielRepository;
     private final FileRepo fileRepository;
     private final String basePath;
@@ -48,14 +48,14 @@ public class CourrielService {
     private final DivisionRepo divisionRepo;
 
     public CourrielService(
-            NotificationWebSocketService notificationWebSocketService,
+            NotificationService notificationService,
             CourrielRepo courrielRepository,
             FileRepo fileRepository,
             @Value("${file.storagePath}") String basePath,
             @Value("${file.maxSize}") String maxFileSize,
             @Value("${file.totalMaxSize}") String totalMaxSize,
             DivisionRepo divisionRepo) {
-        this.notificationWebSocketService = notificationWebSocketService;
+        this.notificationService = notificationService;
         this.courrielRepository = courrielRepository;
         this.fileRepository = fileRepository;
         this.basePath = basePath;
@@ -191,7 +191,7 @@ public class CourrielService {
 
 
 
-            notificationWebSocketService.sendNotification("New Courriel  created ","Courriel with number : "+courriel.getCourrielNumber(),CleaningFilesNames(filesNames), Operations.CREATE, user);
+            notificationService.sendNotification("New Courriel  created ","Courriel with number : "+courriel.getCourrielNumber(),CleaningFilesNames(filesNames), Operations.CREATE, user);
 
 
         }else {
@@ -290,7 +290,7 @@ public class CourrielService {
         // 📢 notification WebSocket
 
         String notificationMessage = "Le courriel n° " + courrielNumber + " a été supprimé avec succès.";
-        notificationWebSocketService.sendNotification(
+        notificationService.sendNotification(
                 notificationMessage,
                 courrielNumber,
                 new HashSet<>(),
@@ -298,7 +298,7 @@ public class CourrielService {
                 user
         );
 
-        notificationWebSocketService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE, user);
+        notificationService.sendNotification("Le courriel n° " + courrielNumber + " a été supprimé avec succès.",courrielNumber,new HashSet<>(), Operations.DELETE, user);
 
 
 
@@ -398,7 +398,7 @@ public class CourrielService {
 
         List<String> filesNames=uploadedFiles.stream().map(n->n.fileName()).collect(Collectors.toList());
 
-        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPLOAD_FILE, user);
+        notificationService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.UPLOAD_FILE, user);
 
 
 
@@ -464,7 +464,7 @@ public class CourrielService {
 
         List<String> filesNames=List.of(filename);
 
-        notificationWebSocketService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.DELETE_FILE, user);
+        notificationService.sendNotification("Courriel n° " + courrielNumber+" a été modifier",courrielNumber,CleaningFilesNames(filesNames), Operations.DELETE_FILE, user);
 
 
 

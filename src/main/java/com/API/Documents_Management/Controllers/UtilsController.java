@@ -1,7 +1,7 @@
 package com.API.Documents_Management.Controllers;
 
 import com.API.Documents_Management.Services.CourrielService;
-import com.API.Documents_Management.WebSocket.Services.NotificationWebSocketService;
+import com.API.Documents_Management.Notification.Services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class UtilsController {
 
     private final CourrielService courrielService;
-    private final NotificationWebSocketService notificationService;
+    private final NotificationService notificationService;
 
     @PutMapping("/cleanup")
     public void cleanUpDatabase(){

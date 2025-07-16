@@ -3,9 +3,12 @@ package com.API.Documents_Management.Utils;
 import com.API.Documents_Management.Entities.AppUser;
 import com.API.Documents_Management.Enums.HierarchyLevel;
 import com.API.Documents_Management.Services_Impl.CustomUserDetails;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 
+@Slf4j
 public class UserUtil {
 
 

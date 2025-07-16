@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.API</groupId>
-	<artifactId>WebSocket Notification</artifactId>
+	<artifactId>Notification_SSE</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>WebSocket </name>
-	<description>Upload and Download Files API with WebSocket Notification</description>
+	<name>Notification_SSE </name>
+	<description>Upload and Download Files API with Server-Sent Events Notification</description>
 	<url/>
 	<licenses>
 		<license/>
