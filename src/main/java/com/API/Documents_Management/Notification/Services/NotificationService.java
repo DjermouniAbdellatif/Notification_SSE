@@ -22,7 +22,7 @@ import com.API.Documents_Management.Notification.Dto.NotificationMessage;
 import com.API.Documents_Management.Notification.Entities.NotificationEntity;
 import com.API.Documents_Management.Notification.Repositories.UserNotificationRepo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -54,16 +54,32 @@ public class NotificationService {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         emitters.computeIfAbsent(username.toLowerCase(), k -> new CopyOnWriteArrayList<>()).add(emitter);
 
-        emitter.onCompletion(() -> emitters.get(username.toLowerCase()).remove(emitter));
-        emitter.onTimeout(() -> emitters.get(username.toLowerCase()).remove(emitter));
-        emitter.onError(e -> emitters.get(username.toLowerCase()).remove(emitter));
+
+
+        emitter.onCompletion(() -> {
+            emitters.get(username.toLowerCase()).remove(emitter);
+            log.info("✅ Emitter terminé pour {}", username);
+        });
+
+        emitter.onTimeout(() -> {
+            emitters.get(username.toLowerCase()).remove(emitter);
+            log.warn("⏰ Timeout de l'emitter pour {}", username);
+        });
+
+        emitter.onError(e -> {
+            emitters.get(username.toLowerCase()).remove(emitter);
+            log.error("❌ Erreur sur l'emitter pour {}: {}", username, e.getMessage());
+        });
 
         return emitter;
     }
 
-    // OK Tested
+    // OK TESTED
+    @Transactional
     public void sendNotification(String message, String courrielNumber, Set<String> filesNames, Operations operation, String creator) {
-        userRepo.findAppUserByUsername(creator).ifPresent(sender -> {
+        log.info("📨 Envoi de notification lancé par {}", creator);
+
+        userRepo.findAppUserByUsername(creator).ifPresentOrElse(sender -> {
             String timestamp = LocalDateTime.now().toString();
 
             NotificationMessage notificationMsg = NotificationMessage.builder()
@@ -78,26 +94,42 @@ public class NotificationService {
                     .time(timestamp)
                     .build();
 
-            // Sauvegarde la notification une seule fois dans la BDD
+            log.info("🗂 Notification construite : {}", notificationMsg);
+
+            // Sauvegarde
             saveNotification(notificationMsg);
+            log.info("💾 Notification enregistrée en base de données pour {}", sender.getUsername());
 
-            // Déterminer les destinataires en fonction de la hiérarchie
+            // Résolution des destinataires
             List<AppUser> recipients = resolveRecipientsByHierarchy(sender);
+            log.info("👥 {} destinataire(s) identifié(s) pour la notification", recipients.size());
 
-            // Envoyer la notification par WebSocket à chaque destinataire
             recipients.forEach(user -> {
-                List<SseEmitter> userEmitters = emitters.getOrDefault(user.getUsername().toLowerCase(), List.of());
-                for (SseEmitter emitter : userEmitters) {
-                    try {
-                        emitter.send(SseEmitter.event().name("notification").data(notificationMsg));
-                    } catch (Exception ex) {
-                        emitters.get(user.getUsername().toLowerCase()).remove(emitter);
-                    }
-                }
-            });
-        });
-    }
+                String username = user.getUsername().toLowerCase();
+                List<SseEmitter> userEmitters = emitters.getOrDefault(username, List.of());
 
+                log.info("📡 Envoi vers {} ({} emitter(s))", username, userEmitters.size());
+
+                userEmitters.forEach(emitter -> {
+                    try {
+                        emitter.send(
+                                SseEmitter.event()
+                                        .id(UUID.randomUUID().toString())
+                                        .name("notification")
+                                        .data(notificationMsg)
+                                        .reconnectTime(5000)
+                        );
+                        log.info("✅ Notification envoyée à {}", username);
+                    } catch (Exception ex) {
+                        emitter.completeWithError(ex);
+                        emitters.get(username).remove(emitter);
+                        log.error("⚠️ Échec de l'envoi à {}: {}", username, ex.getMessage());
+                    }
+                });
+            });
+
+        }, () -> log.warn("⚠️ Utilisateur inconnu: {}", creator));
+    }
 
 
     // Ok Tested

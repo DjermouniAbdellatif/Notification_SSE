@@ -9,10 +9,12 @@ import com.API.Documents_Management.Utils.UserUtil;
 import com.API.Documents_Management.Notification.Dto.NotificationDTO;
 import com.API.Documents_Management.Notification.Services.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
@@ -28,12 +30,19 @@ public class NotificationController {
 
 
 
-    @GetMapping("/stream")
-    public SseEmitter streamNotifications(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
-        AppUser currentUser = UserUtil.getAuthenticatedUser();
-        return notificationService.registerEmitter(currentUser.getUsername());
-    }
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamNotifications(
+            @RequestHeader("Authorization") String authHeader) {
 
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+        String username = jwtService.extractUsernameFromToken(token);
+
+        if (username == null || !jwtService.isValidToken(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        return notificationService.registerEmitter(username);
+    }
 
     /*
          Get Authenticated User Notifications
