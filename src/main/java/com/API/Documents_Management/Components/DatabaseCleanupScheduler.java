@@ -1,6 +1,6 @@
 package com.API.Documents_Management.Components;
 
-import com.API.Documents_Management.Services.CourrielService;
+import com.API.Documents_Management.Courriel.CourrielService;
 import com.API.Documents_Management.Notification.Services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;

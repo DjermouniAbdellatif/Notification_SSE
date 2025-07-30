@@ -1,8 +1,8 @@
 package com.API.Documents_Management.Components;
 
 import com.API.Documents_Management.Entities.AuditableEntity;
-import com.API.Documents_Management.Entities.Courriel;
-import com.API.Documents_Management.Entities.File;
+import com.API.Documents_Management.Courriel.Courriel;
+import com.API.Documents_Management.Courriel.File;
 import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Services.AuditLogService;
 import jakarta.persistence.PostPersist;

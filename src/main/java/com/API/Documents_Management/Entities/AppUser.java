@@ -45,4 +45,10 @@ public class AppUser  {
     @ManyToOne(fetch = FetchType.LAZY)
     private SousDirection sousDirection;
 
+
+    public boolean hasRole(String roleName) {
+        if (this.roles == null) return false;
+        return this.roles.stream()
+                .anyMatch(role -> role.getName().toString().equalsIgnoreCase(roleName));
+    }
 }

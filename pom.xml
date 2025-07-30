@@ -169,6 +169,7 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<finalName>Gestion_Courrier_APP</finalName>
 		<plugins>
 			<plugin>
 				<artifactId>maven-surefire-plugin</artifactId>

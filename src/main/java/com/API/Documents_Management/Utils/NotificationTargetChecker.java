@@ -1,7 +1,7 @@
 package com.API.Documents_Management.Utils;
 
 import com.API.Documents_Management.Entities.AppUser;
-import com.API.Documents_Management.Entities.Courriel;
+import com.API.Documents_Management.Courriel.Courriel;
 import com.API.Documents_Management.Enums.HierarchyLevel;
 
 public class NotificationTargetChecker {

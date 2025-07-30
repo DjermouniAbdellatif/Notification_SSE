@@ -3,7 +3,7 @@ package com.API.Documents_Management.Controllers;
 import com.API.Documents_Management.Dto.ApiResponse;
 import com.API.Documents_Management.Dto.AuditLogResponse;
 import com.API.Documents_Management.Services.AuditLogService;
-import com.API.Documents_Management.Services.CourrielService;
+import com.API.Documents_Management.Courriel.CourrielService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

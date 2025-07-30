@@ -1,6 +1,6 @@
 package com.API.Documents_Management.Controllers;
 
-import com.API.Documents_Management.Services.CourrielService;
+import com.API.Documents_Management.Courriel.CourrielService;
 import com.API.Documents_Management.Notification.Services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;

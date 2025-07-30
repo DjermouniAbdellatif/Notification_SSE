@@ -1,6 +1,6 @@
 package com.API.Documents_Management.Dto;
 
-import com.API.Documents_Management.Enums.CourrielType;
+import com.API.Documents_Management.Courriel.CourrielType;
 import lombok.Builder;
 
 @Builder
