@@ -1,6 +1,6 @@
 package com.API.Documents_Management;
 
-import com.API.Documents_Management.Courriel.CourrielService;
+import com.API.Documents_Management.Courriel.Services.CourrielService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.SpringApplication;

@@ -1,4 +1,4 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Entities;
 
 
 import com.API.Documents_Management.Direction.Direction;
@@ -7,8 +7,6 @@ import com.API.Documents_Management.Entities.AlgerianMinistry;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Builder

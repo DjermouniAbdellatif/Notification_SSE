@@ -1,5 +1,7 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Repos;
 
+import com.API.Documents_Management.Courriel.Entities.Courriel;
+import com.API.Documents_Management.Courriel.Entities.File;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;

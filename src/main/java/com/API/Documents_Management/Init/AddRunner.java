@@ -1,9 +1,8 @@
 package com.API.Documents_Management.Init;
 
-import com.API.Documents_Management.Entities.AppUser;
 import com.API.Documents_Management.Repositories.AppUserRepo;
 import com.API.Documents_Management.Notification.Services.NotificationService;
-import com.API.Documents_Management.Courriel.CourrielService;
+import com.API.Documents_Management.Courriel.Services.CourrielService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;

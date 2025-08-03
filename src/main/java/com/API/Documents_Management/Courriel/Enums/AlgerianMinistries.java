@@ -1,4 +1,4 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Enums;
 
 
 import com.fasterxml.jackson.annotation.JsonCreator;

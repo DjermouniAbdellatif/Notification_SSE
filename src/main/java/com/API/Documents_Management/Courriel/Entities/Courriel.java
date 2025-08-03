@@ -1,10 +1,11 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Entities;
 
 import com.API.Documents_Management.Components.AuditEntityListener;
+import com.API.Documents_Management.Courriel.Enums.CourrielType;
+import com.API.Documents_Management.Courriel.Enums.NatureCourriel;
 import com.API.Documents_Management.Direction.Direction;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management.Entities.AlgerianMinistry;
-import com.API.Documents_Management.Entities.AppUser;
 import com.API.Documents_Management.Entities.AuditableEntity;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import jakarta.persistence.*;

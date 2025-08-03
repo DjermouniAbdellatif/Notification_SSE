@@ -1,5 +1,7 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Repos;
 
+import com.API.Documents_Management.Courriel.Entities.Courriel;
+import com.API.Documents_Management.Courriel.Entities.CourrielDestination;
 import com.API.Documents_Management.Direction.Direction;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management.Entities.AlgerianMinistry;

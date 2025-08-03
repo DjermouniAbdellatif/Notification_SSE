@@ -1,7 +1,15 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Services;
 
 
+import com.API.Documents_Management.Courriel.Enums.CourrielType;
 import com.API.Documents_Management.Courriel.Dto.CreateCourrielRequest;
+import com.API.Documents_Management.Courriel.Entities.Courriel;
+import com.API.Documents_Management.Courriel.Entities.CourrielDestination;
+import com.API.Documents_Management.Courriel.Entities.File;
+import com.API.Documents_Management.Courriel.Enums.NatureCourriel;
+import com.API.Documents_Management.Courriel.Repos.CourrielDestinationRepo;
+import com.API.Documents_Management.Courriel.Repos.CourrielRepo;
+import com.API.Documents_Management.Courriel.Repos.FileRepo;
 import com.API.Documents_Management.Direction.Direction;
 import com.API.Documents_Management.Direction.DirectionRepo;
 import com.API.Documents_Management.Division.Division;
@@ -167,7 +175,7 @@ public class CourrielService {
         Files.createDirectories(folderPath);
 
         // Compression et enregistrement des fichiers
-        Set<File> courrielFiles = new HashSet<>();
+        Set<com.API.Documents_Management.Courriel.Entities.File> courrielFiles = new HashSet<>();
         List<UploadFileResponse> uploadedFileResponses = new ArrayList<>();
 
         for (MultipartFile multipartFile : validFiles) {
@@ -187,7 +195,7 @@ public class CourrielService {
 
             long size = Files.size(compressedFilePath);
 
-            courrielFiles.add(File.builder()
+            courrielFiles.add(com.API.Documents_Management.Courriel.Entities.File.builder()
                     .fileName(compressedFileName)
                     .filePath(compressedFilePath.toString())
                     .fileSize(size)
@@ -276,7 +284,7 @@ public class CourrielService {
                 .orElseThrow(() -> new ResourceNotFoundException("Courriel not found: " + courrielNumber));
 
         // Check if file exist
-        File file = courriel.getCourrielFiles().stream()
+        com.API.Documents_Management.Courriel.Entities.File file = courriel.getCourrielFiles().stream()
                 .filter(f -> f.getFileName().equalsIgnoreCase(fileName))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("File not found: " + fileName));
@@ -311,45 +319,26 @@ public class CourrielService {
 
     @Transactional
     public ApiResponse<DeleteCourrielResponse> deleteCourrielByNumber(String courrielNumber, AppUser currentUser) {
-        // Récupérer le courriel
+        // 🔍 Récupérer le courriel
         Courriel courriel = courrielRepo.findByCourrielNumberWithFiles(courrielNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Courriel introuvable avec le numéro : " + courrielNumber));
 
-        AppUser creator = appUserRepo.findAppUserByUsername(courriel.getCreatedBy()).orElse(null);
+        // 👤 Récupérer le créateur du courriel
+        AppUser creator = appUserRepo.findAppUserByUsername(courriel.getCreatedBy())
+                .orElseThrow(() -> new IllegalStateException("Créateur du courriel introuvable"));
 
-        if (creator == null) {
-            throw new IllegalStateException("Impossible de déterminer le créateur du courriel.");
+        // 🛡️ Vérification des autorisations
+        if (isSimpleUser(currentUser)) {
+            throw new AccessDeniedException("Les utilisateurs simples ne peuvent pas supprimer de courriel.");
         }
 
-        // Vérification des droits
-
-        // est un simple user
-        if ((!currentUser.hasRole("ADMIN"))
-                &&((currentUser.hasRole("USER")))
-                &&(currentUser.getSousDirection() != null)
-        ) {
-            throw new AccessDeniedException("Vous n'avez pas l'autorisation en tant que simple utilisateur pour supprimer ce courriel.");
-        }
-
-        boolean sameDivision = creator.getDivision() != null &&
-                currentUser.getDivision() != null &&
-                creator.getDivision().getId().equals(currentUser.getDivision().getId());
-
-        boolean sameDirection = creator.getDirection() != null &&
-                currentUser.getDirection() != null &&
-                creator.getDirection().getId().equals(currentUser.getDirection().getId());
-
-        boolean isDirecteur = (currentUser.hasRole("ADMIN")&&((currentUser.getSousDirection()!=null)||(currentUser.getDirection()!=null)));
-
-        boolean isChefDivision = (currentUser.hasRole("ADMIN")&&(currentUser.getDivision()!=null));
-
-        boolean canDelete = (isDirecteur && sameDirection) || (isChefDivision && sameDivision);
+        boolean canDelete = hasDeleteRights(currentUser, creator);
 
         if (!canDelete) {
             throw new AccessDeniedException("Vous n'avez pas les droits pour supprimer ce courriel.");
         }
 
-        // Supprimer les fichiers
+        // 🧹 Supprimer les fichiers du dossier
         Path folderPath = Paths.get(courriel.getCourrielPath());
         try {
             if (Files.exists(folderPath)) {
@@ -358,7 +347,7 @@ public class CourrielService {
                         .map(Path::toFile)
                         .forEach(f -> {
                             if (!f.delete()) {
-                                System.err.println("Impossible de supprimer le fichier : " + f.getAbsolutePath());
+                                System.err.println("Erreur suppression : " + f.getAbsolutePath());
                             }
                         });
             }
@@ -366,13 +355,11 @@ public class CourrielService {
             throw new RuntimeException("Erreur lors de la suppression des fichiers du courriel : " + courrielNumber, e);
         }
 
-        // Supprimer en base de données
+        // 🗑️ Supprimer de la base
         courrielRepo.delete(courriel);
 
-
+        // 🔔 Notification
         String label = resolveStructureString(currentUser);
-
-        // Notification WebSocket
         notificationService.sendNotification(
                 "Le courriel n° " + courrielNumber + " a été supprimé pour votre structure : " + label,
                 courrielNumber,
@@ -381,9 +368,9 @@ public class CourrielService {
                 currentUser.getUsername()
         );
 
-        // Réponse
+        // ✅ Réponse
         DeleteCourrielResponse response = DeleteCourrielResponse.builder()
-                .courrielNumber(courriel.getCourrielNumber())
+                .courrielNumber(courrielNumber)
                 .courrielPath(courriel.getCourrielPath())
                 .build();
 
@@ -393,8 +380,6 @@ public class CourrielService {
                 .data(response)
                 .build();
     }
-
-
 
     //===================== Add File to courriel ==========================================
 
@@ -458,7 +443,7 @@ public class CourrielService {
 
             long compressedSize = Files.size(targetPath) ;
 
-            File fileEntity = File.builder()
+            com.API.Documents_Management.Courriel.Entities.File fileEntity = com.API.Documents_Management.Courriel.Entities.File.builder()
                     .fileName(compressedFileName)
                     .fileType("application/pdf")
                     .filePath(targetPath.toString())
@@ -517,7 +502,7 @@ public class CourrielService {
         Courriel courriel = courrielRepo.findByCourrielNumberWithFiles(courrielNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Courriel not found: " + courrielNumber));
 
-        File fileToRemove = courriel.getCourrielFiles().stream()
+        com.API.Documents_Management.Courriel.Entities.File fileToRemove = courriel.getCourrielFiles().stream()
                 .filter(f -> f.getFileName().equalsIgnoreCase(filename))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("File not found: " + filename + " in DB"));
@@ -583,6 +568,32 @@ public class CourrielService {
 }
 
 
+    private boolean isSimpleUser(AppUser user) {
+        return user.getRoles().contains("USER")
+                && user.getSousDirection() != null
+                && user.getDirection() != null
+                && user.getDivision() != null;
+    }
+
+    private boolean hasDeleteRights(AppUser currentUser, AppUser creator) {
+        // Chef de division
+        if (currentUser.getDivision() != null
+                && currentUser.getDirection() == null
+                && currentUser.getSousDirection() == null) {
+            return creator.getDivision() != null
+                    && creator.getDivision().getId().equals(currentUser.getDivision().getId());
+        }
+
+        // Directeur
+        if (currentUser.getDirection() != null
+                && currentUser.getSousDirection() == null) {
+            return creator.getDirection() != null
+                    && creator.getDirection().getId().equals(currentUser.getDirection().getId());
+        }
+
+        // Aucun droit spécial
+        return false;
+    }
 
 
 
@@ -594,7 +605,7 @@ public class CourrielService {
 
 
         for (Courriel courriel : allCourriels) {
-            Iterator<File> iterator = courriel.getCourrielFiles().iterator();
+            Iterator<com.API.Documents_Management.Courriel.Entities.File> iterator = courriel.getCourrielFiles().iterator();
 
             while (iterator.hasNext()) {
                 File file = iterator.next();

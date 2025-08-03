@@ -1,4 +1,4 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Entities;
 
 
 import com.API.Documents_Management.Components.AuditEntityListener;

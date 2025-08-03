@@ -1,15 +1,13 @@
-package com.API.Documents_Management.Courriel;
+package com.API.Documents_Management.Courriel.Controllers;
 
-import com.API.Documents_Management.Courriel.Dto.CourrielResponseDto;
 import com.API.Documents_Management.Courriel.Dto.CreateCourrielRequest;
-import com.API.Documents_Management.Direction.Direction;
-import com.API.Documents_Management.Division.Division;
+import com.API.Documents_Management.Courriel.Repos.CourrielDestinationRepo;
+import com.API.Documents_Management.Courriel.Repos.CourrielRepo;
+import com.API.Documents_Management.Courriel.Services.CourrielService;
 import com.API.Documents_Management.Dto.*;
-import com.API.Documents_Management.Entities.AlgerianMinistry;
 import com.API.Documents_Management.Entities.AppUser;
 import com.API.Documents_Management.Exceptions.AlreadyExistsException;
 import com.API.Documents_Management.Services.AppUserService;
-import com.API.Documents_Management.SousDirection.SousDirection;
 import com.API.Documents_Management.Utils.UserUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +16,12 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 
 @RestController
@@ -49,6 +47,8 @@ public class CourrielController {
 //    }
 
     //===================== Create ===============================================
+
+    @PreAuthorize("hasAuthority('ADMIN_READ')")
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CreateCourrielResponse>> createCourriel(
             @RequestPart("data") CreateCourrielRequest request,
@@ -129,12 +129,14 @@ public class CourrielController {
 //
 
 
-    @DeleteMapping
-    public ResponseEntity<ApiResponse<DeleteCourrielResponse>> deleteCourriel(@RequestParam("courrielNumber") String courrielNumber) throws IOException {
-        AppUser currentUser = UserUtil.getAuthenticatedUser();
-        ApiResponse<DeleteCourrielResponse> response = courrielService.deleteCourrielByNumber(courrielNumber,currentUser);
-        return ResponseEntity.ok(response);
-    }
+@DeleteMapping
+public ResponseEntity<ApiResponse<DeleteCourrielResponse>> deleteCourriel(
+        @RequestParam("courrielNumber") String courrielNumber) {
+
+    AppUser currentUser = UserUtil.getAuthenticatedUser();
+    ApiResponse<DeleteCourrielResponse> response = courrielService.deleteCourrielByNumber(courrielNumber, currentUser);
+    return ResponseEntity.ok(response);
+}
 
     @GetMapping("/download")
     public ResponseEntity<Resource> downloadFile(
