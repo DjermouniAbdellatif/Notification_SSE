@@ -18,7 +18,7 @@ public record CreateCourrielRequest (
      Long fromDivisionID,
      Long fromDirectionID,
      Long fromSousDirectionID,
-     Long externalID,
+     Long fromExternalID,
      List<DestinationDto> destinations,
      LocalDateTime sentDate,
      LocalDateTime arrivedDate,

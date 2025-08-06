@@ -1,5 +1,9 @@
 package com.API.Documents_Management.Courriel.Entities;
 
+import com.API.Documents_Management.Courriel.Enums.TypeStructure;
+
 public interface Structure {
-    String getStructureCode(); // Code unique : ex. DGB,MP,CF
+    TypeStructure getTypeStructure();
+    Long getId();
+    String getName();
 }

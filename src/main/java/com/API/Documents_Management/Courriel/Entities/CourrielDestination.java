@@ -8,6 +8,7 @@ import com.API.Documents_Management.SousDirection.SousDirection;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Data
 @Entity
 @Builder
 @AllArgsConstructor

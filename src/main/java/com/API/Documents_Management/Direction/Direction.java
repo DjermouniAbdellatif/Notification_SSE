@@ -1,5 +1,7 @@
 package com.API.Documents_Management.Direction;
 
+import com.API.Documents_Management.Courriel.Entities.Structure;
+import com.API.Documents_Management.Courriel.Enums.TypeStructure;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import jakarta.persistence.*;
@@ -13,7 +15,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Direction {
+public class Direction implements Structure {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "direction_seq_gen")
@@ -28,4 +30,20 @@ public class Direction {
     @JoinColumn(name = "division_id", nullable = false)
     private Division division;
 
+
+
+    @Override
+    public TypeStructure getTypeStructure() {
+        return TypeStructure.DIRECTION;
+    }
+
+    @Override
+    public Long getId() {
+        return this.id;
+    }
+
+    @Override
+    public String getName() {
+        return this.name;
+    }
 }

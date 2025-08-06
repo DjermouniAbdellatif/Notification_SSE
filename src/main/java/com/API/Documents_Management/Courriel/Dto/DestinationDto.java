@@ -4,8 +4,8 @@ import lombok.Builder;
 
 @Builder
 public record DestinationDto (
-     Long divisionID,
-     Long directionID,
-     Long sousDirectionID,
-     Long externalID
+     Long toDivisionID,
+     Long toDirectionID,
+     Long toSousDirectionID,
+     Long toExternalID
 ){};

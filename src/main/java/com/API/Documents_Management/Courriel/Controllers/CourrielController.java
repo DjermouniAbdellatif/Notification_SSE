@@ -1,6 +1,7 @@
 package com.API.Documents_Management.Courriel.Controllers;
 
 import com.API.Documents_Management.Courriel.Dto.CreateCourrielRequest;
+import com.API.Documents_Management.Courriel.Enums.CourrielType;
 import com.API.Documents_Management.Courriel.Repos.CourrielDestinationRepo;
 import com.API.Documents_Management.Courriel.Repos.CourrielRepo;
 import com.API.Documents_Management.Courriel.Services.CourrielService;
@@ -33,6 +34,8 @@ public class CourrielController {
     private final AppUserService appUserService;
     private final CourrielRepo courrielRepo;
     private final CourrielDestinationRepo courrielDestinationRepo;
+    private final UserUtil userUtil;
+
 
     //===================== Filter ===============================================
 
@@ -48,29 +51,34 @@ public class CourrielController {
 
     //===================== Create ===============================================
 
-    @PreAuthorize("hasAuthority('ADMIN_READ')")
+
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CreateCourrielResponse>> createCourriel(
             @RequestPart("data") CreateCourrielRequest request,
             @RequestPart("files") MultipartFile[] files
     ) {
-        AppUser currentUser = UserUtil.getAuthenticatedUser();
-
-
-        CreateCourrielRequest enrichedRequest = CreateCourrielRequest.builder()
-                .courrielNumber(request.courrielNumber())
-                .subject(request.subject())
-                .description(request.description())
-                .courrielType(request.courrielType())
-                .nature(request.nature())
-                .destinations(request.destinations())
-                .sentDate(request.sentDate())
-                .arrivedDate(request.arrivedDate())
-                .returnDate(request.returnDate())
-                .files(files)
-                .build();
+        AppUser currentUser = userUtil.getAuthenticatedUser();
 
         try {
+            CourrielType courrielType = CourrielType.fromStringSafe(request.courrielType());
+
+            CreateCourrielRequest enrichedRequest = CreateCourrielRequest.builder()
+                    .courrielNumber(request.courrielNumber())
+                    .subject(request.subject())
+                    .description(request.description())
+                    .courrielType(courrielType.name())
+                    .nature(request.nature())
+                    .destinations(request.destinations())
+                    .sentDate(request.sentDate())
+                    .arrivedDate(request.arrivedDate())
+                    .returnDate(request.returnDate())
+                    .files(files)
+                    .fromDivisionID(request.fromDivisionID())
+                    .fromDirectionID(request.fromDirectionID())
+                    .fromSousDirectionID(request.fromSousDirectionID())
+                    .fromExternalID(request.fromExternalID())
+                    .build();
+
             ApiResponse<CreateCourrielResponse> response = courrielService.createCourriel(enrichedRequest, currentUser);
             return ResponseEntity.ok(response);
 
@@ -133,7 +141,7 @@ public class CourrielController {
 public ResponseEntity<ApiResponse<DeleteCourrielResponse>> deleteCourriel(
         @RequestParam("courrielNumber") String courrielNumber) {
 
-    AppUser currentUser = UserUtil.getAuthenticatedUser();
+    AppUser currentUser = userUtil.getAuthenticatedUser();
     ApiResponse<DeleteCourrielResponse> response = courrielService.deleteCourrielByNumber(courrielNumber, currentUser);
     return ResponseEntity.ok(response);
 }

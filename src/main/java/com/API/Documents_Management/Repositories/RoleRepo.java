@@ -27,11 +27,9 @@ public interface RoleRepo extends JpaRepository<Role, Long> {
     Optional<Role> findByName(RoleType name);
 
 
-    void deleteByName(RoleType name);
 
     void deleteById(Long id);
 
-    List<Role> findAllByNameIn(List<RoleType> names);
 
 
     List<Role> findByAuthoritiesContaining(Authority authority);

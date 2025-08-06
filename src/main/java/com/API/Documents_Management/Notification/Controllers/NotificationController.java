@@ -26,6 +26,7 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final AuthService authService;
     private final JwtService jwtService;
+    private final UserUtil userUtil;
 
 
 
@@ -65,7 +66,7 @@ public class NotificationController {
      */
     @GetMapping("/unread")
     public ResponseEntity<ApiResponse<List<NotificationDTO>>> getNotificationsForUser(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
-        AppUser currentUser = UserUtil.getAuthenticatedUser();
+        AppUser currentUser = userUtil.getAuthenticatedUser();
 
         var data = notificationService.getNotificationsForUser(currentUser);
         boolean success=(!data.isEmpty());
@@ -84,7 +85,7 @@ public class NotificationController {
             @PathVariable Long id,
             @AuthenticationPrincipal CustomUserDetails currentUserDetails) {
 
-            AppUser currentUser = UserUtil.getAuthenticatedUser();
+            AppUser currentUser = userUtil.getAuthenticatedUser();
             NotificationDTO data= notificationService.readNotificationById(id,currentUser);
             boolean success= data == null;
             String msg=(success?"Notification Lue avec Succès":"Aucune notification n'a été trouvée !");
@@ -98,7 +99,7 @@ public class NotificationController {
     */
     @PutMapping("/read-all")
     public ResponseEntity<ApiResponse<List<NotificationDTO>>> markAllAsRead(@AuthenticationPrincipal CustomUserDetails currentUserDetails) {
-        AppUser currentUser = UserUtil.getAuthenticatedUser();
+        AppUser currentUser = userUtil.getAuthenticatedUser();
 
         List<NotificationDTO>data= notificationService.readAllNotificationsByUser(currentUser);
 

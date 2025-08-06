@@ -1,12 +1,14 @@
 package com.API.Documents_Management.Courriel.Services;
 
 
+import com.API.Documents_Management.Courriel.Entities.Structure;
 import com.API.Documents_Management.Courriel.Enums.CourrielType;
 import com.API.Documents_Management.Courriel.Dto.CreateCourrielRequest;
 import com.API.Documents_Management.Courriel.Entities.Courriel;
 import com.API.Documents_Management.Courriel.Entities.CourrielDestination;
 import com.API.Documents_Management.Courriel.Entities.File;
 import com.API.Documents_Management.Courriel.Enums.NatureCourriel;
+import com.API.Documents_Management.Courriel.Enums.PosteUser;
 import com.API.Documents_Management.Courriel.Repos.CourrielDestinationRepo;
 import com.API.Documents_Management.Courriel.Repos.CourrielRepo;
 import com.API.Documents_Management.Courriel.Repos.FileRepo;
@@ -15,6 +17,7 @@ import com.API.Documents_Management.Direction.DirectionRepo;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management.Division.DivisionRepo;
 import com.API.Documents_Management.Dto.*;
+import com.API.Documents_Management.Enums.HierarchyLevel;
 import com.API.Documents_Management.Enums.Operations;
 import com.API.Documents_Management.Exceptions.*;
 import com.API.Documents_Management.Entities.*;
@@ -24,7 +27,9 @@ import com.API.Documents_Management.SousDirection.SousDierctionRepo;
 import com.API.Documents_Management.SousDirection.SousDirection;
 import com.API.Documents_Management.Utils.FormatUtils;
 import com.API.Documents_Management.Notification.Services.NotificationService;
+import com.API.Documents_Management.Utils.UserUtil;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -63,6 +68,7 @@ public class CourrielService {
     private final DirectionRepo directionRepo;
     private final SousDierctionRepo sousDierctionRepo;
     private final AppUserRepo appUserRepo;
+    private final UserUtil userUtil;
 
     public CourrielService(
             NotificationService notificationService,
@@ -71,7 +77,7 @@ public class CourrielService {
             @Value("${file.storagePath}") String basePath,
             @Value("${file.maxSize}") String maxFileSize,
             @Value("${file.totalMaxSize}") String totalMaxSize,
-            DivisionRepo divisionRepo, DirectionRepo directionRepo, SousDierctionRepo sousDierctionRepo, AppUserRepo appUserRepo) {
+            DivisionRepo divisionRepo, DirectionRepo directionRepo, SousDierctionRepo sousDierctionRepo, AppUserRepo appUserRepo, UserUtil userUtil) {
         this.notificationService = notificationService;
         this.courrielDestinationRepo = courrielDestinationRepo;
         this.courrielRepo = courrielRepo;
@@ -83,6 +89,7 @@ public class CourrielService {
         this.directionRepo = directionRepo;
         this.sousDierctionRepo = sousDierctionRepo;
         this.appUserRepo = appUserRepo;
+        this.userUtil = userUtil;
     }
 
     public String getUser() {
@@ -93,185 +100,95 @@ public class CourrielService {
 
 
 
-    //===================== Check Duplication in destination   ==========================================
+    //===================== Check Duplication    ==========================================
 
-    public boolean isDuplicate(String courrielNumber, AppUser currentUser) {
-        Division division = currentUser.getDivision();
-        Direction direction = currentUser.getDirection();
-        SousDirection sousDirection = currentUser.getSousDirection();
+    public boolean existsInCurrentUserStructure(String courrielNumber, CourrielType type, AppUser currentUser) {
+        Structure structure = userUtil.getStructure(currentUser);
 
-        // Cas 1 : Chef de division
-        if (division != null && direction == null && sousDirection == null) {
-            return courrielDestinationRepo.existsByCourriel_CourrielNumberAndToDivision_IdAndToDirectionIsNullAndToSousDirectionIsNull(
-                    courrielNumber, division.getId());
-        }
-
-        // Cas 2 : Directeur
-        if (division != null && direction != null && sousDirection == null) {
-            return courrielDestinationRepo.existsByCourriel_CourrielNumberAndToDirection_IdAndToSousDirectionIsNull(
-                    courrielNumber, direction.getId());
-        }
-
-        // Cas 3 : Sous-directeur
-        if (division != null && direction != null && sousDirection != null) {
-            return courrielDestinationRepo.existsByCourriel_CourrielNumberAndToSousDirection_Id(
-                    courrielNumber, sousDirection.getId());
-        }
-
-        return false;
+        return switch (structure.getTypeStructure()) {
+            case DIVISION -> {
+                Division division = (Division) structure;
+                yield type == CourrielType.DEPART
+                        ? courrielRepo.existsByCourrielNumberAndCourrielTypeAndFromDivision_Id(
+                        courrielNumber, type, division.getId())
+                        : courrielRepo.existsByCourrielNumberAndCourrielTypeAndToDivision(
+                        courrielNumber, type, division.getId());
+            }
+            case DIRECTION -> {
+                Direction direction = (Direction) structure;
+                yield type == CourrielType.DEPART
+                        ? courrielRepo.existsByCourrielNumberAndCourrielTypeAndFromDirection_Id(
+                        courrielNumber, type, direction.getId())
+                        : courrielRepo.existsByCourrielNumberAndCourrielTypeAndToDirection(
+                        courrielNumber, type, direction.getId());
+            }
+            case SOUS_DIRECTION -> {
+                SousDirection sousDirection = (SousDirection) structure;
+                yield type == CourrielType.DEPART
+                        ? courrielRepo.existsByCourrielNumberAndCourrielTypeAndFromSousDirection_Id(
+                        courrielNumber, type, sousDirection.getId())
+                        : courrielRepo.existsByCourrielNumberAndCourrielTypeAndToSousDirection(
+                        courrielNumber, type, sousDirection.getId());
+            }
+            default -> false;
+        };
     }
-
-
-
-
 
     //===================== Create  ==========================================
 
     @Transactional
     public ApiResponse<CreateCourrielResponse> createCourriel(CreateCourrielRequest request, AppUser currentUser) throws IOException {
+        // Conversion du type
+        CourrielType type = CourrielType.valueOf(request.courrielType().trim().toUpperCase());
 
-        if (isDuplicate(request.courrielNumber(), currentUser)) {
-            throw new AlreadyExistsException("Un courriel avec le numéro " + request.courrielNumber() + " existe déjà !");
+        // === Vérification des doublons ===
+        if (existsInCurrentUserStructure(request.courrielNumber(), type, currentUser)) {
+            Structure structure = userUtil.getStructure(currentUser);
+            String structureType = type == CourrielType.DEPART ? "d'expédition" : "de réception";
+            throw new AlreadyExistsException(String.format(
+                    "Un courriel %s avec le numéro %s existe déjà dans votre structure %s (%s)",
+                    type,
+                    request.courrielNumber(),
+                    structure.getTypeStructure(),
+                    userUtil.getStructureName(structure)
+            ));
         }
 
-        // Validation des fichiers
+        // === Traitement des fichiers ===
         List<MultipartFile> uploadedFiles = List.of(request.files());
         List<SkippedFileError> skippedFiles = new ArrayList<>();
-        List<MultipartFile> validFiles = new ArrayList<>();
-        long totalSize = 0;
-
-        for (MultipartFile file : uploadedFiles) {
-            if (file == null || file.isEmpty()) continue;
-
-            String originalName = file.getOriginalFilename();
-
-            if (!"application/pdf".equalsIgnoreCase(file.getContentType())) {
-                skippedFiles.add(new SkippedFileError(originalName, "Seuls les fichiers PDF sont autorisés"));
-                continue;
-            }
-
-            if (file.getSize() > maxFileSize) {
-                skippedFiles.add(new SkippedFileError(originalName, "Fichier trop volumineux (max 10 MB)"));
-                continue;
-            }
-
-            totalSize += file.getSize();
-
-            if (totalSize > totalMaxSize) {
-                skippedFiles.add(new SkippedFileError(originalName, "Taille totale dépassée (max 100 MB)"));
-                break;
-            }
-
-            validFiles.add(file);
-        }
+        List<MultipartFile> validFiles = filterValidFiles(uploadedFiles, skippedFiles);
 
         if (validFiles.isEmpty()) {
             return new ApiResponse<>(false, "Aucun fichier valide à traiter", null);
         }
 
-        // Création du dossier
-        String folderName = request.courrielNumber() + "_" + currentUser.getId() + "_" + UUID.randomUUID().toString().substring(0, 10);
+        // === Création du dossier de stockage ===
+        String folderName = generateFolderName(request.courrielNumber(), currentUser.getId());
         Path folderPath = Paths.get(basePath, folderName);
         Files.createDirectories(folderPath);
 
-        // Compression et enregistrement des fichiers
-        Set<com.API.Documents_Management.Courriel.Entities.File> courrielFiles = new HashSet<>();
-        List<UploadFileResponse> uploadedFileResponses = new ArrayList<>();
-
-        for (MultipartFile multipartFile : validFiles) {
-            String originalName = Paths.get(multipartFile.getOriginalFilename()).getFileName().toString();
-            String compressedFileName = originalName + ".gz";
-            Path compressedFilePath = folderPath.resolve(compressedFileName);
-
-            try (
-                    InputStream input = new BufferedInputStream(multipartFile.getInputStream());
-                    OutputStream output = new GZIPOutputStream(Files.newOutputStream(compressedFilePath))
-            ) {
-                input.transferTo(output);
-            } catch (IOException e) {
-                skippedFiles.add(new SkippedFileError(originalName, "Erreur de compression"));
-                continue;
-            }
-
-            long size = Files.size(compressedFilePath);
-
-            courrielFiles.add(com.API.Documents_Management.Courriel.Entities.File.builder()
-                    .fileName(compressedFileName)
-                    .filePath(compressedFilePath.toString())
-                    .fileSize(size)
-                    .fileType("application/pdf")
-                    .build());
-
-            uploadedFileResponses.add(UploadFileResponse.builder()
-                    .fileName(compressedFileName)
-                    .filePath(compressedFilePath.toString())
-                    .fileSize(FormatUtils.formatFileSize(size))
-                    .build());
-        }
+        // === Compression & sauvegarde des fichiers ===
+        Set<File> courrielFiles = new HashSet<>();
+        List<UploadFileResponse> uploadedFileResponses = compressAndStoreFiles(validFiles, folderPath, courrielFiles, skippedFiles);
 
         if (courrielFiles.isEmpty()) {
             Files.deleteIfExists(folderPath);
             return new ApiResponse<>(false, "Tous les fichiers ont échoué à la compression.", null);
         }
 
-        CourrielType type = CourrielType.valueOf(request.courrielType().trim().toUpperCase());
-        NatureCourriel nature = NatureCourriel.valueOf(request.nature().trim().toUpperCase());
+        // === Construction de l'entité Courriel ===
+        Courriel courriel = buildCourrielEntity(request, currentUser, folderPath, courrielFiles);
+        setCourrielStructures(courriel, request, currentUser);
 
-        Courriel courriel = Courriel.builder()
-                .createdBy(currentUser.getUsername())
-                .courrielNumber(request.courrielNumber())
-                .courrielType(type)
-                .nature(nature)
-                .courrielPath(folderPath.toString())
-                .sentDate(request.sentDate())
-                .arrivedDate(request.arrivedDate())
-                .saveDate(LocalDateTime.now())
-                .courrielFiles(courrielFiles)
-                .build();
-
-        if (type == CourrielType.DEPART) {
-            courriel.setFromDivision(currentUser.getDivision());
-            courriel.setFromDirection(currentUser.getDirection());
-            courriel.setFromSousDirection(currentUser.getSousDirection());
-
-            List<CourrielDestination> destinations = request.destinations().stream()
-                    .map(dest -> CourrielDestination.builder()
-                            .courriel(courriel)
-                            .toDivision(dest.divisionID() != null ? divisionRepo.findById(dest.divisionID()).orElseThrow(() -> new EntityNotFoundException("Division introuvable")) : null)
-                            .toDirection(dest.directionID() != null ? directionRepo.findById(dest.directionID()).orElseThrow(() -> new EntityNotFoundException("Direction introuvable")) : null)
-                            .toSousDirection(dest.sousDirectionID() != null ? sousDierctionRepo.findById(dest.sousDirectionID()).orElseThrow(() -> new EntityNotFoundException("Sous-direction introuvable")) : null)
-                            .build())
-                    .toList();
-
-            courriel.setDestinations(destinations);
-        } else if (type == CourrielType.ARRIVER) {
-            courriel.setDestinations(List.of(
-                    CourrielDestination.builder()
-                            .courriel(courriel)
-                            .toDivision(currentUser.getDivision())
-                            .toDirection(currentUser.getDirection())
-                            .toSousDirection(currentUser.getSousDirection())
-                            .build()
-            ));
-        }
-
+        // === Enregistrement ===
         courrielRepo.save(courriel);
 
-        notificationService.sendNotification(
-                "Nouveau courriel " + request.courrielNumber() + " a été créé.",
-                request.courrielNumber(),
-                uploadedFileResponses.stream().map(UploadFileResponse::fileName).collect(Collectors.toSet()),
-                Operations.CREATE,
-                currentUser.getUsername()
-        );
+        // === Envoi de notification ===
+        sendCreationNotification(request, currentUser, uploadedFileResponses);
 
-        return new ApiResponse<>(true, "Courriel créé avec succès", CreateCourrielResponse.builder()
-                .courrielNumber(request.courrielNumber())
-                .uploadedFiles(uploadedFileResponses)
-                .skippedFiles(skippedFiles)
-                .build());
+        return buildSuccessResponse(request, uploadedFileResponses, skippedFiles);
     }
-
 
 
 
@@ -319,67 +236,11 @@ public class CourrielService {
 
     @Transactional
     public ApiResponse<DeleteCourrielResponse> deleteCourrielByNumber(String courrielNumber, AppUser currentUser) {
-        // 🔍 Récupérer le courriel
-        Courriel courriel = courrielRepo.findByCourrielNumberWithFiles(courrielNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Courriel introuvable avec le numéro : " + courrielNumber));
-
-        // 👤 Récupérer le créateur du courriel
-        AppUser creator = appUserRepo.findAppUserByUsername(courriel.getCreatedBy())
-                .orElseThrow(() -> new IllegalStateException("Créateur du courriel introuvable"));
-
-        // 🛡️ Vérification des autorisations
-        if (isSimpleUser(currentUser)) {
-            throw new AccessDeniedException("Les utilisateurs simples ne peuvent pas supprimer de courriel.");
-        }
-
-        boolean canDelete = hasDeleteRights(currentUser, creator);
-
-        if (!canDelete) {
-            throw new AccessDeniedException("Vous n'avez pas les droits pour supprimer ce courriel.");
-        }
-
-        // 🧹 Supprimer les fichiers du dossier
-        Path folderPath = Paths.get(courriel.getCourrielPath());
-        try {
-            if (Files.exists(folderPath)) {
-                Files.walk(folderPath)
-                        .sorted(Comparator.reverseOrder())
-                        .map(Path::toFile)
-                        .forEach(f -> {
-                            if (!f.delete()) {
-                                System.err.println("Erreur suppression : " + f.getAbsolutePath());
-                            }
-                        });
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Erreur lors de la suppression des fichiers du courriel : " + courrielNumber, e);
-        }
-
-        // 🗑️ Supprimer de la base
-        courrielRepo.delete(courriel);
-
-        // 🔔 Notification
-        String label = resolveStructureString(currentUser);
-        notificationService.sendNotification(
-                "Le courriel n° " + courrielNumber + " a été supprimé pour votre structure : " + label,
-                courrielNumber,
-                Set.of(),
-                Operations.DELETE,
-                currentUser.getUsername()
-        );
-
-        // ✅ Réponse
-        DeleteCourrielResponse response = DeleteCourrielResponse.builder()
-                .courrielNumber(courrielNumber)
-                .courrielPath(courriel.getCourrielPath())
-                .build();
-
-        return ApiResponse.<DeleteCourrielResponse>builder()
-                .isSucces(true)
-                .message("Courriel supprimé avec succès pour votre structure : " + label)
-                .data(response)
-                .build();
+return null;
     }
+
+
+
 
     //===================== Add File to courriel ==========================================
 
@@ -546,54 +407,172 @@ public class CourrielService {
     }
 
 
-//=============================== Hierarchy Utils =====================================
+    //====================== Courriel Helper Methode==================================================
 
-    private String resolveStructureString(AppUser user) {
-
-    String name;
-    String structure;
-
-    if (user.getSousDirection() != null) {
-        structure="Sous Direction";
-        name=user.getSousDirection().getName();
-    } else if (user.getDirection() != null) {
-        structure="Direction";
-        name=user.getDirection().getName();
-    }else{
-        structure="Division";
-        name=user.getDivision().getName();
+    private void sendCreationNotification(CreateCourrielRequest request, AppUser currentUser,
+                                          List<UploadFileResponse> uploadedFileResponses) {
+        notificationService.sendNotification(
+                "Nouveau courriel " + request.courrielNumber() + " a été créé.",
+                request.courrielNumber(),
+                uploadedFileResponses.stream().map(UploadFileResponse::fileName).collect(Collectors.toSet()),
+                Operations.CREATE,
+                currentUser.getUsername()
+        );
     }
 
-    return structure+" "+name;
-}
-
-
-    private boolean isSimpleUser(AppUser user) {
-        return user.getRoles().contains("USER")
-                && user.getSousDirection() != null
-                && user.getDirection() != null
-                && user.getDivision() != null;
+    private ApiResponse<CreateCourrielResponse> buildSuccessResponse(CreateCourrielRequest request,
+                                                                     List<UploadFileResponse> uploadedFileResponses,
+                                                                     List<SkippedFileError> skippedFiles) {
+        return new ApiResponse<>(true, "Courriel créé avec succès", CreateCourrielResponse.builder()
+                .courrielNumber(request.courrielNumber())
+                .uploadedFiles(uploadedFileResponses)
+                .skippedFiles(skippedFiles)
+                .build());
     }
 
-    private boolean hasDeleteRights(AppUser currentUser, AppUser creator) {
-        // Chef de division
-        if (currentUser.getDivision() != null
-                && currentUser.getDirection() == null
-                && currentUser.getSousDirection() == null) {
-            return creator.getDivision() != null
-                    && creator.getDivision().getId().equals(currentUser.getDivision().getId());
+    private void setCourrielStructures(Courriel courriel, CreateCourrielRequest request, AppUser currentUser) {
+        CourrielType type = courriel.getCourrielType();
+
+        if (type == CourrielType.DEPART) {
+            setDepartStructures(courriel, currentUser);
+            setDestinations(courriel, request);
+        } else {
+            setArriverStructures(courriel, currentUser);
+        }
+    }
+
+    private void setDepartStructures(Courriel courriel, AppUser currentUser) {
+        courriel.setFromDivision(currentUser.getDivision());
+        courriel.setFromDirection(currentUser.getDirection());
+        courriel.setFromSousDirection(currentUser.getSousDirection());
+    }
+
+    private void setDestinations(Courriel courriel, CreateCourrielRequest request) {
+        List<CourrielDestination> destinations = request.destinations().stream()
+                .map(dest -> CourrielDestination.builder()
+                        .courriel(courriel)
+                        .toDivision(getDivision(dest.toDivisionID()))
+                        .toDirection(getDirection(dest.toDirectionID()))
+                        .toSousDirection(getSousDirection(dest.toSousDirectionID()))
+                        .build())
+                .toList();
+        courriel.setDestinations(destinations);
+    }
+
+    private void setArriverStructures(Courriel courriel, AppUser currentUser) {
+        courriel.setDestinations(List.of(
+                CourrielDestination.builder()
+                        .courriel(courriel)
+                        .toDivision(currentUser.getDivision())
+                        .toDirection(currentUser.getDirection())
+                        .toSousDirection(currentUser.getSousDirection())
+                        .build()
+        ));
+    }
+
+    private List<MultipartFile> filterValidFiles(List<MultipartFile> uploadedFiles, List<SkippedFileError> skippedFiles) {
+        List<MultipartFile> validFiles = new ArrayList<>();
+        long totalSize = 0;
+
+        for (MultipartFile file : uploadedFiles) {
+            if (file == null || file.isEmpty()) continue;
+
+            String originalName = file.getOriginalFilename();
+
+            if (!"application/pdf".equalsIgnoreCase(file.getContentType())) {
+                skippedFiles.add(new SkippedFileError(originalName, "Seuls les fichiers PDF sont autorisés"));
+                continue;
+            }
+
+            if (file.getSize() > maxFileSize) {
+                skippedFiles.add(new SkippedFileError(originalName, "Fichier trop volumineux (max 10 MB)"));
+                continue;
+            }
+
+            totalSize += file.getSize();
+            if (totalSize > totalMaxSize) {
+                skippedFiles.add(new SkippedFileError(originalName, "Taille totale dépassée (max 100 MB)"));
+                break;
+            }
+
+            validFiles.add(file);
         }
 
-        // Directeur
-        if (currentUser.getDirection() != null
-                && currentUser.getSousDirection() == null) {
-            return creator.getDirection() != null
-                    && creator.getDirection().getId().equals(currentUser.getDirection().getId());
+        return validFiles;
+    }
+
+    private String generateFolderName(String courrielNumber, Long userId) {
+        return courrielNumber + "_" + userId + "_" + UUID.randomUUID().toString().substring(0, 10);
+    }
+
+    private List<UploadFileResponse> compressAndStoreFiles(List<MultipartFile> files, Path folderPath,
+                                                           Set<File> courrielFiles, List<SkippedFileError> skippedFiles) throws IOException {
+        List<UploadFileResponse> responses = new ArrayList<>();
+
+        for (MultipartFile multipartFile : files) {
+            String originalName = Paths.get(multipartFile.getOriginalFilename()).getFileName().toString();
+            String compressedFileName = originalName + ".gz";
+            Path compressedPath = folderPath.resolve(compressedFileName);
+
+            try (
+                    InputStream input = new BufferedInputStream(multipartFile.getInputStream());
+                    OutputStream output = new GZIPOutputStream(Files.newOutputStream(compressedPath))
+            ) {
+                input.transferTo(output);
+            } catch (IOException e) {
+                skippedFiles.add(new SkippedFileError(originalName, "Erreur de compression"));
+                continue;
+            }
+
+            long size = Files.size(compressedPath);
+
+            courrielFiles.add(File.builder()
+                    .fileName(compressedFileName)
+                    .filePath(compressedPath.toString())
+                    .fileSize(size)
+                    .fileType("application/pdf")
+                    .build());
+
+            responses.add(UploadFileResponse.builder()
+                    .fileName(compressedFileName)
+                    .filePath(compressedPath.toString())
+                    .fileSize(FormatUtils.formatFileSize(size))
+                    .build());
         }
 
-        // Aucun droit spécial
-        return false;
+        return responses;
     }
+
+    private Courriel buildCourrielEntity(CreateCourrielRequest request, AppUser user, Path folderPath, Set<File> files) {
+        return Courriel.builder()
+                .createdBy(user.getUsername())
+                .courrielNumber(request.courrielNumber())
+                .courrielType(CourrielType.valueOf(request.courrielType().trim().toUpperCase()))
+                .nature(NatureCourriel.valueOf(request.nature().trim().toUpperCase()))
+                .courrielPath(folderPath.toString())
+                .sentDate(request.sentDate())
+                .arrivedDate(request.arrivedDate())
+                .saveDate(LocalDateTime.now())
+                .courrielFiles(files)
+                .build();
+    }
+
+
+    private Division getDivision(Long id) {
+        return id != null ? divisionRepo.findById(id).orElseThrow(() -> new EntityNotFoundException("Division introuvable")) : null;
+    }
+
+    private Direction getDirection(Long id) {
+        return id != null ? directionRepo.findById(id).orElseThrow(() -> new EntityNotFoundException("Direction introuvable")) : null;
+    }
+
+    private SousDirection getSousDirection(Long id) {
+        return id != null ? sousDierctionRepo.findById(id).orElseThrow(() -> new EntityNotFoundException("Sous-direction introuvable")) : null;
+    }
+
+
+
+    // ========================= DB  cleanup methodes ====================================
 
 
 
