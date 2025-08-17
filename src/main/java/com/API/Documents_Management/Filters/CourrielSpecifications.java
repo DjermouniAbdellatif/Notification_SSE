@@ -1,7 +1,7 @@
 package com.API.Documents_Management.Filters;
 
 import com.API.Documents_Management.Dto.CourrielFilterRequest;
-import com.API.Documents_Management.Entities.Courriel;
+import com.API.Documents_Management.Courriel.Entities.Courriel;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 

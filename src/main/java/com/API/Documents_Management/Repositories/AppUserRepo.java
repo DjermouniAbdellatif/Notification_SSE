@@ -3,10 +3,7 @@ package com.API.Documents_Management. Repositories;
 import com.API.Documents_Management.Direction.Direction;
 import com.API.Documents_Management.Division.Division;
 import com.API.Documents_Management. Entities.AppUser;
-import com.API.Documents_Management. Entities.Authority;
 import com.API.Documents_Management. Entities.Role;
-import com.API.Documents_Management. Enums.RoleType;
-import com.API.Documents_Management.SousDirection.SousDirection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,4 +46,19 @@ public interface AppUserRepo extends JpaRepository<AppUser, Long> {
 
     @Query("SELECT DISTINCT u FROM AppUser u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.authorities WHERE u.division = :division")
     List<AppUser> findAllWithRolesByDivision(@Param("division") Division division);
+
+
+    @Query("""
+    SELECT DISTINCT u FROM AppUser u
+    LEFT JOIN FETCH u.sousDirection
+    LEFT JOIN FETCH u.direction
+    LEFT JOIN FETCH u.division
+    LEFT JOIN FETCH u.roles r
+    LEFT JOIN FETCH r.authorities
+    WHERE u.username = :username
+""")
+    Optional<AppUser> findByUsernameWithStructures(@Param("username") String username);
+
+
+
 }

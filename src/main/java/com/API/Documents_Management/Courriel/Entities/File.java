@@ -1,7 +1,8 @@
-package com.API.Documents_Management.Entities;
+package com.API.Documents_Management.Courriel.Entities;
 
 
 import com.API.Documents_Management.Components.AuditEntityListener;
+import com.API.Documents_Management.Entities.AuditableEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

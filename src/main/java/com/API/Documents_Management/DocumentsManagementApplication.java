@@ -1,17 +1,11 @@
 package com.API.Documents_Management;
 
-import com.API.Documents_Management.Repositories.CourrielRepo;
-import com.API.Documents_Management.Repositories.FileRepo;
-import com.API.Documents_Management.Services.CourrielService;
+import com.API.Documents_Management.Courriel.Services.CourrielService;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @RequiredArgsConstructor

@@ -23,6 +23,7 @@ public class NotificationEntity {
     private String message;
     private String courrielNumber;
 
+
     @ElementCollection(fetch = FetchType.LAZY)
     private Set<String> filesNames;
 

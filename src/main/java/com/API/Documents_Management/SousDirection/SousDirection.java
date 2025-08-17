@@ -1,5 +1,7 @@
 package com.API.Documents_Management.SousDirection;
 
+import com.API.Documents_Management.Courriel.Entities.Structure;
+import com.API.Documents_Management.Courriel.Enums.TypeStructure;
 import com.API.Documents_Management.Direction.Direction;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,7 +13,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SousDirection {
+public class SousDirection implements Structure {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sousdirection_seq_gen")
@@ -25,4 +27,20 @@ public class SousDirection {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "direction_id", nullable = false)
     private Direction direction;
+
+
+    @Override
+    public TypeStructure getTypeStructure() {
+        return TypeStructure.SOUS_DIRECTION;
+    }
+
+    @Override
+    public Long getId() {
+        return this.id;
+    }
+
+    @Override
+    public String getName() {
+        return this.name;
+    }
 }
